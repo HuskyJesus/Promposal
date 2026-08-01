@@ -1,18 +1,25 @@
 /**
  * Base class for the chapters you can walk around in.
  *
- * It owns the things every explorable area needs: the heroine, Theo trailing
- * behind her, collision, the "press to interact" logic, a painted background
- * buffer and the particle layers. Chapters subclass it and describe their own
- * scenery, characters and puzzles.
+ * It owns the things every explorable area needs: the heroine and her
+ * animation states, Theo trailing behind her, collision, the "press to
+ * interact" logic, the painted background buffer, and the lighting and
+ * particle layers that give a flat top-down scene depth.
  */
 
 import { ParticleField, AmbientDrift } from './particles.js';
 import { drawHeroine, drawTheo, facingFromVector } from './sprites.js';
-import { drawInteractPrompt, drawVignette } from './art.js';
+import {
+  drawInteractPrompt, drawVignette, drawAtmosphere, drawLightPools,
+  drawSwayingTufts, drawForegroundFoliage, makeRandom
+} from './art.js';
+import { PALETTE } from './theme.js';
 
 const PLAYER_RADIUS = 8;
-const PLAYER_SPEED = 118;
+const PLAYER_SPEED = 124;
+const ACCELERATION = 1500;
+const DECELERATION = 1900;
+const STEP_INTERVAL = 0.3;
 
 export class WorldScene {
   constructor(game) {
@@ -26,11 +33,22 @@ export class WorldScene {
     this.particles = new ParticleField();
     this.drifts = [];
     this.background = null;
-    this.player = { x: 200, y: 400, facing: 'down', moving: false, walkTime: 0 };
-    this.theo = { x: 170, y: 420, visible: true, mood: 'happy', facing: 'down' };
-    this.theoFollowOffset = { x: -26, y: 14 };
-    this.vignetteStrength = 0.5;
-    this.skyColor = '#161228';
+    this.foreground = null;
+    this.lightPools = [];
+    this.tufts = [];
+    this.atmosphere = null;
+    this.atmosphereStrength = 0.1;
+
+    this.player = {
+      x: 200, y: 400, vx: 0, vy: 0,
+      facing: 'down', moving: false, walkTime: 0, stepTimer: 0
+    };
+    this.anim = { state: 'idle', time: 0, duration: 0 };
+    this.theo = { x: 170, y: 420, visible: true, mood: 'happy', facing: 'down', cheer: 0 };
+    this.theoFollowOffset = { x: -28, y: 16 };
+
+    this.vignetteStrength = 0.45;
+    this.skyColor = PALETTE.night;
     this.busy = false;
     this.nearest = null;
   }
@@ -42,6 +60,11 @@ export class WorldScene {
 
   exit() {
     this.particles.clear();
+    this.entities.length = 0;
+    this.interactables.length = 0;
+    this.drifts.length = 0;
+    this.tufts.length = 0;
+    this.lightPools.length = 0;
   }
 
   /* ------------------------------------------------------------ authoring */
@@ -70,33 +93,51 @@ export class WorldScene {
    * `available` lets a chapter hide an interaction until it makes sense.
    */
   addInteractable(spec) {
-    const item = { radius: 44, promptOffset: -46, ...spec };
+    const item = { radius: 48, promptOffset: -50, ...spec };
     this.interactables.push(item);
     return item;
   }
 
   addDrift(spec) {
     const drift = new AmbientDrift(spec);
-    drift.palette = spec.palette || { core: '#ffe9b0' };
+    drift.palette = spec.palette || { core: PALETTE.goldLight };
     this.drifts.push(drift);
     return drift;
   }
 
+  /** Scatters grass that leans in the breeze across the walkable area. */
+  seedTufts({ count, bounds, colors, blooms = [], seed = 12 }) {
+    const random = makeRandom(seed);
+    for (let i = 0; i < count; i++) {
+      this.tufts.push({
+        x: bounds.x + random() * bounds.width,
+        y: bounds.y + random() * bounds.height,
+        height: 7 + random() * 9,
+        width: 1 + random() * 0.9,
+        amp: 1.6 + random() * 2.4,
+        phase: random() * Math.PI * 2,
+        color: colors[(random() * colors.length) | 0],
+        bloom: blooms.length && random() < 0.3 ? blooms[(random() * blooms.length) | 0] : null
+      });
+    }
+  }
+
   /* ------------------------------------------------------------ simulation */
+
+  /** Plays a one-shot character animation such as "collect" or "success". */
+  playAnim(state, duration = 0.6) {
+    this.anim = { state, time: 0, duration };
+  }
 
   update(dt) {
     this.time += dt;
     const game = this.game;
     const canMove = !this.busy && !game.ui.dialogue.active && !game.ui.panelOpen;
 
-    if (canMove) {
-      const axis = game.input.axis();
-      this.#movePlayer(axis, dt);
-    } else {
-      this.player.moving = false;
-    }
-
+    this.#movePlayer(canMove ? game.input.axis() : { x: 0, y: 0 }, dt);
+    this.#updateAnim(dt);
     this.#updateTheo(dt);
+
     for (const drift of this.drifts) drift.update(dt, this.time);
     this.particles.update(dt);
     this.#updateNearest(canMove);
@@ -105,18 +146,46 @@ export class WorldScene {
 
   #movePlayer(axis, dt) {
     const p = this.player;
-    const moving = Math.abs(axis.x) > 0.01 || Math.abs(axis.y) > 0.01;
-    p.moving = moving;
-    if (!moving) return;
+    const wants = Math.abs(axis.x) > 0.01 || Math.abs(axis.y) > 0.01;
 
-    p.facing = facingFromVector(axis.x, axis.y, p.facing);
-    p.walkTime += dt;
+    // Accelerate toward the requested direction, brake quickly when released.
+    // Fast enough to feel immediate, damped enough not to feel like ice.
+    const targetX = axis.x * PLAYER_SPEED;
+    const targetY = axis.y * PLAYER_SPEED;
+    const rate = (wants ? ACCELERATION : DECELERATION) * dt;
+    p.vx += Math.max(-rate, Math.min(rate, targetX - p.vx));
+    p.vy += Math.max(-rate, Math.min(rate, targetY - p.vy));
 
-    const step = PLAYER_SPEED * dt;
-    // One axis at a time, so walking into a wall diagonally slides along it
-    // instead of stopping dead.
-    this.#step(p, axis.x * step, 0);
-    this.#step(p, 0, axis.y * step);
+    const speed = Math.hypot(p.vx, p.vy);
+    if (speed < 3) {
+      p.vx = 0;
+      p.vy = 0;
+    }
+    p.moving = speed > 8;
+
+    if (p.moving) {
+      p.facing = facingFromVector(p.vx, p.vy, p.facing);
+      p.walkTime += dt * Math.min(1, speed / PLAYER_SPEED);
+
+      // A soft puff of dust marks each footfall.
+      p.stepTimer -= dt * (speed / PLAYER_SPEED);
+      if (p.stepTimer <= 0) {
+        p.stepTimer = STEP_INTERVAL;
+        this.particles.emit({
+          x: p.x + (Math.random() - 0.5) * 6,
+          y: p.y + 1,
+          vx: -p.vx * 0.06, vy: -4 - Math.random() * 4,
+          life: 0.45, maxLife: 0.45,
+          size: 1.6 + Math.random(), color: 'rgba(226,232,246,0.5)',
+          gravity: 6, drag: 0.9, shape: 'dot'
+        });
+        this.game.audio.footstep();
+      }
+    }
+
+    // One axis at a time, so walking into a wall diagonally slides along it.
+    this.#step(p, p.vx * dt, 0);
+    this.#step(p, 0, p.vy * dt);
 
     p.x = Math.max(PLAYER_RADIUS, Math.min(this.world.width - PLAYER_RADIUS, p.x));
     p.y = Math.max(PLAYER_RADIUS, Math.min(this.world.height - PLAYER_RADIUS, p.y));
@@ -127,7 +196,10 @@ export class WorldScene {
     if (dx === 0 && dy === 0) return;
     const nx = p.x + dx;
     const ny = p.y + dy;
-    if (this.#blocked(nx, ny)) return;
+    if (this.#blocked(nx, ny)) {
+      if (dx !== 0) p.vx = 0; else p.vy = 0;
+      return;
+    }
     p.x = nx;
     p.y = ny;
   }
@@ -144,9 +216,19 @@ export class WorldScene {
     return false;
   }
 
+  #updateAnim(dt) {
+    const anim = this.anim;
+    if (anim.duration <= 0) return;
+    anim.time += dt;
+    if (anim.time >= anim.duration) {
+      this.anim = { state: 'idle', time: 0, duration: 0 };
+    }
+  }
+
   /** Theo drifts along behind her, catching up when she gets too far ahead. */
   #updateTheo(dt) {
     const t = this.theo;
+    if (t.cheer > 0) t.cheer = Math.max(0, t.cheer - dt * 0.5);
     if (!t.visible) return;
     const targetX = this.player.x + this.theoFollowOffset.x;
     const targetY = this.player.y + this.theoFollowOffset.y;
@@ -157,6 +239,23 @@ export class WorldScene {
     t.x += dx * Math.min(1, ease * dt);
     t.y += dy * Math.min(1, ease * dt);
     if (dist > 6) t.facing = facingFromVector(dx, dy, t.facing);
+
+    // Silver stars trail off him when he is excited.
+    if (t.cheer > 0.3 && Math.random() < dt * 12) {
+      this.particles.emit({
+        x: t.x + (Math.random() - 0.5) * 18,
+        y: t.y - 16 - Math.random() * 14,
+        vx: (Math.random() - 0.5) * 12, vy: -12 - Math.random() * 10,
+        life: 0.9, maxLife: 0.9, size: 1.7,
+        color: PALETTE.silver, gravity: -4, drag: 0.95, shape: 'star'
+      });
+    }
+  }
+
+  /** Theo reacts: a short burst of bouncing and stars. */
+  cheerTheo(mood = 'delighted', amount = 1) {
+    this.theo.mood = mood;
+    this.theo.cheer = amount;
   }
 
   #updateNearest(canMove) {
@@ -172,8 +271,10 @@ export class WorldScene {
         }
       }
     }
-    this.nearest = best;
-    this.game.ui.setInteractTarget(best ? best.label : null);
+    if (best !== this.nearest) {
+      this.nearest = best;
+      this.game.ui.setInteractTarget(best ? best.label : null);
+    }
   }
 
   /** Called by the game when the interaction button or Space is pressed. */
@@ -181,6 +282,7 @@ export class WorldScene {
     if (this.busy || !this.nearest) return false;
     const target = this.nearest;
     this.game.audio.interact();
+    this.playAnim('interact', 0.42);
     const result = target.onInteract?.(target);
     if (result instanceof Promise) {
       this.busy = true;
@@ -189,10 +291,23 @@ export class WorldScene {
     return true;
   }
 
+  /**
+   * A tap directly on an object she is already standing next to also works,
+   * so the interaction button is a convenience rather than the only way in.
+   */
+  tapAt(worldX, worldY) {
+    if (this.busy || !this.nearest) return false;
+    const d = Math.hypot(this.nearest.x - worldX, this.nearest.y - worldY);
+    if (d > 56) return false;
+    return this.interact();
+  }
+
   /** Runs a dialogue, blocking movement until it finishes. */
   async say(lines) {
     this.busy = true;
     this.game.input.releaseAll();
+    this.player.vx = 0;
+    this.player.vy = 0;
     try {
       return await this.game.ui.dialogue.play(lines);
     } finally {
@@ -213,20 +328,33 @@ export class WorldScene {
 
   draw(renderer) {
     const ctx = renderer.ctx;
-    renderer.followCamera(this.player.x, this.player.y - 20, this.world, 0.12);
+    const reduced = this.game.settings.reducedMotion;
+    renderer.followCamera(this.player.x, this.player.y - 24, this.world, reduced ? 1 : 0.14);
 
     renderer.clear(this.skyColor);
     renderer.beginWorld();
+    const bounds = renderer.viewBounds(140);
 
     this.drawBackground(ctx);
+    if (this.lightPools.length) {
+      drawLightPools(ctx, this.lightPools, this.time, PALETTE.moonlit, reduced ? 0.45 : 0.62);
+    }
     this.drawBehind?.(ctx, this.time);
+    if (this.tufts.length) drawSwayingTufts(ctx, this.tufts, reduced ? 0 : this.time, bounds);
 
     // Depth sort: everything drawn from the back of the scene forwards.
     const drawables = [];
     for (const entity of this.entities) {
       if (entity.hidden?.()) continue;
+      if (entity.x !== undefined) {
+        const pad = entity.cullRadius ?? 160;
+        if (entity.x < bounds.left - pad || entity.x > bounds.right + pad) continue;
+        if (entity.y < bounds.top - pad * 2 || entity.y > bounds.bottom + pad) continue;
+      }
       drawables.push({ y: entity.depth ?? entity.y, draw: () => entity.draw(ctx, this.time) });
     }
+
+    const carry = Math.min(1, this.game.save.progress.fragments.length / 3);
     drawables.push({
       y: this.player.y,
       draw: () => drawHeroine(ctx, {
@@ -235,13 +363,19 @@ export class WorldScene {
         facing: this.player.facing,
         time: this.player.moving ? this.player.walkTime : this.time,
         moving: this.player.moving,
-        scale: 1
+        scale: 1,
+        state: this.anim.state,
+        statePhase: this.anim.duration ? this.anim.time / this.anim.duration : 0,
+        carry: carry * (0.35 + 0.25 * Math.sin(this.time * 1.6))
       })
     });
     if (this.theo.visible) {
       drawables.push({
         y: this.theo.y,
-        draw: () => drawTheo(ctx, { x: this.theo.x, y: this.theo.y, time: this.time, scale: 0.95, mood: this.theo.mood, facing: this.theo.facing })
+        draw: () => drawTheo(ctx, {
+          x: this.theo.x, y: this.theo.y, time: this.time, scale: 0.95,
+          mood: this.theo.mood, facing: this.theo.facing, cheer: this.theo.cheer
+        })
       });
     }
     drawables.sort((a, b) => a.y - b.y);
@@ -251,18 +385,28 @@ export class WorldScene {
     for (const item of this.interactables) {
       if (item.available && !item.available()) continue;
       if (item.hidePrompt) continue;
+      if (item.x < bounds.left || item.x > bounds.right) continue;
       const active = this.nearest === item;
       const dist = Math.hypot(item.x - this.player.x, item.y - this.player.y);
-      if (dist < item.radius * 2.4) {
-        drawInteractPrompt(ctx, item.x, item.y + (item.promptOffset ?? -46), this.time, active ? '#ffe6ad' : '#cbb489', active);
+      if (dist < item.radius * 2.6) {
+        drawInteractPrompt(
+          ctx, item.x, item.y + (item.promptOffset ?? -50), this.time,
+          active ? PALETTE.goldLight : PALETTE.silverDim, active, reduced
+        );
       }
     }
 
     this.drawFront?.(ctx, this.time);
-    for (const drift of this.drifts) drift.draw(ctx, this.time, drift.palette || { core: '#ffe9b0' });
+    for (const drift of this.drifts) drift.draw(ctx, this.time, drift.palette);
     this.particles.draw(ctx);
 
     renderer.beginScreen();
+    if (this.foreground) {
+      drawForegroundFoliage(ctx, renderer.width, renderer.height, this.foreground, renderer.camera, 0.035);
+    }
+    if (this.atmosphere) {
+      drawAtmosphere(ctx, renderer.width, renderer.height, this.atmosphere, this.atmosphereStrength);
+    }
     drawVignette(ctx, renderer.width, renderer.height, this.vignetteStrength);
     this.drawScreen?.(ctx, renderer);
   }

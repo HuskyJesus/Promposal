@@ -82,6 +82,9 @@ the title screen to the final page, in both landscape and portrait.
 * Every meaningful sound is captioned on screen, and the game is fully playable
   with sound switched off.
 * Text speed can be set to instant.
+* Every primary control is at least 48x48 CSS pixels and clears the phone's
+  safe areas; the thumb stick and action button step aside while she is
+  reading so no dialogue is ever hidden behind a thumb.
 
 ## Project layout
 
@@ -97,7 +100,9 @@ src/
     game.js           the loop, the scene stack, the pause menu
     worldScene.js     shared behaviour for the explorable chapters
     renderer.js       canvas, device pixel ratio, camera
-    art.js            procedural scenery: trees, paths, lanterns, skies
+    theme.js          the whole colour system in one place
+    art.js            procedural scenery: trees, paths, lanterns, skies,
+                      mist, light pools and foreground foliage
     sprites.js        characters and dialogue portraits
     particles.js      fireflies, petals, sparks
     audio.js          procedural music, ambience and sound effects

@@ -11,8 +11,9 @@ import { createBuffer } from '../engine/renderer.js';
 import {
   paintGround, paintNightSky, paintStonePath, drawFlowerCluster, drawFern, drawMoon,
   drawPersonalStar, drawCastleSilhouette, drawLantern, drawThreeStars, drawVine,
-  makeRandom, makeSprite, rgba, starPath
+  paintMist, drawLightPool, drawClouds, makeRandom, makeSprite, rgba, starPath
 } from '../engine/art.js';
+import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
 import { GARDEN } from '../data/dialogue.js';
 import { config, fill } from '../config.js';
 import { el, wait } from '../engine/ui.js';
@@ -27,6 +28,7 @@ const LANTERNS = [
   { id: 2, x: 820, y: 540 }
 ];
 
+const THEME = SCENE_THEMES.garden;
 const DAIS = { x: 560, y: 380 };
 const STAR = { x: 800, y: 96 };
 const NEIGHBOUR = { x: 856, y: 124 };
@@ -35,10 +37,12 @@ export class GardenScene extends WorldScene {
   constructor(game) {
     super(game);
     this.world = WORLD;
-    this.skyColor = '#0b0a1c';
-    this.vignetteStrength = 0.55;
-    this.player = { x: 560, y: 720, facing: 'up', moving: false, walkTime: 0 };
-    this.theo = { x: 520, y: 740, visible: true, mood: 'happy', facing: 'up' };
+    this.skyColor = THEME.skyTop;
+    this.vignetteStrength = THEME.vignette;
+    this.atmosphere = PALETTE.lavender;
+    this.atmosphereStrength = 0.055;
+    Object.assign(this.player, { x: 560, y: 720, facing: 'up', moving: false, walkTime: 0 });
+    Object.assign(this.theo, { x: 520, y: 740, visible: true, mood: 'happy', facing: 'up' });
     this.lit = [false, false, false];
     this.neighbourGlow = 0;
     this.beam = null;
@@ -59,6 +63,18 @@ export class GardenScene extends WorldScene {
     this.#buildColliders();
     this.#buildScenery();
     this.#buildInteractables();
+
+    this.lightPools = [
+      { x: DAIS.x, y: DAIS.y + 30, r: 170 },
+      { x: 300, y: 566, r: 100 }, { x: 560, y: 512, r: 100 }, { x: 820, y: 566, r: 100 }
+    ];
+    this.seedTufts({
+      count: 130,
+      bounds: { x: 30, y: SHORE_Y + 20, width: WORLD.width - 60, height: WORLD.height - SHORE_Y - 50 },
+      colors: ['#357a5a', '#2c6a4c'],
+      blooms: THEME.flowers,
+      seed: 8123
+    });
 
     this.drifts = [];
     this.addDrift({
@@ -144,11 +160,11 @@ export class GardenScene extends WorldScene {
   #paintBackground() {
     const { width, height } = WORLD;
     return createBuffer(width, height, (ctx) => {
-      paintNightSky(ctx, width, SHORE_Y, { top: '#08071a', bottom: '#241f42', starCount: 120, seed: 77 });
-      drawCastleSilhouette(ctx, width * 0.5, SHORE_Y - 6, 1.5, '#13112a', 'rgba(255,214,140,0.5)');
+      paintNightSky(ctx, width, SHORE_Y, { top: THEME.skyTop, bottom: THEME.skyBottom, starCount: 120, seed: 77 });
+      drawCastleSilhouette(ctx, width * 0.5, SHORE_Y - 6, 1.5, THEME.horizon, 'rgba(255,214,140,0.5)');
 
       const lawn = createBuffer(width, height - 200, (lctx, w, h) => {
-        paintGround(lctx, w, h, { base: '#1f4034', patch: '#2f6a4e', seed: 91, patchCount: 240 });
+        paintGround(lctx, w, h, { base: THEME.ground, patch: THEME.groundPatch, seed: 91, patchCount: 240 });
       });
       ctx.drawImage(lawn, 0, 200);
 
@@ -166,7 +182,7 @@ export class GardenScene extends WorldScene {
         if (Math.abs(x - 560) < 46 && y > 380) continue;
         const roll = random();
         if (roll < 0.5) {
-          drawFlowerCluster(ctx, x, y, 0.7 + random() * 0.6, ['#f4dff0', '#e8d8f4', '#ffe9b0'], 300 + i, 4);
+          drawFlowerCluster(ctx, x, y, 0.7 + random() * 0.6, THEME.flowers, 300 + i, 4);
         } else if (roll < 0.8) {
           drawFern(ctx, x, y, 0.6 + random() * 0.6, '#2f6a4e', 400 + i);
         }
@@ -176,6 +192,8 @@ export class GardenScene extends WorldScene {
         { stem: '#2f6a4e', leaf: '#4f8f63', leafDark: '#356b4c' }, 51);
       drawVine(ctx, [{ x: 1040, y: 700 }, { x: 1024, y: 648 }, { x: 1038, y: 598 }], 1.4,
         { stem: '#2f6a4e', leaf: '#4f8f63', leafDark: '#356b4c' }, 53);
+
+      paintMist(ctx, width, height, THEME.mist, 41, 6);
     });
   }
 
@@ -260,6 +278,8 @@ export class GardenScene extends WorldScene {
 
     this.lit[id] = true;
     this.game.audio.sparkle();
+    this.playAnim('interact', 0.42);
+    this.cheerTheo('delighted', 0.7);
     this.game.ui.caption(`Lantern ${id + 1} of 3 lights`);
     this.particles.burst(LANTERNS[id].x, LANTERNS[id].y - 40, 22, {
       color: ['#ffe9b0', '#ffd48a'], speed: 50, life: 1.2, size: 2.6, shape: 'spark', gravity: -20
@@ -377,7 +397,22 @@ export class GardenScene extends WorldScene {
     this.celebrating = true;
     this.bloom = 0.001;
     this.game.audio.celebrate();
-    this.theo.mood = 'proud';
+    this.playAnim('celebrate', 9);
+    this.cheerTheo('delighted', 1);
+    if (!this.game.settings.reducedMotion) this.game.renderer.emphasise(0.08);
+
+    // Lavender blossoms open in a ring around her.
+    for (let i = 0; i < 14; i++) {
+      const angle = (i / 14) * Math.PI * 2;
+      this.particles.emit({
+        x: this.player.x + Math.cos(angle) * 26,
+        y: this.player.y + Math.sin(angle) * 14,
+        vx: Math.cos(angle) * 26, vy: Math.sin(angle) * 14 - 18,
+        life: 2.4, maxLife: 2.4, size: 3.2,
+        color: i % 2 ? PALETTE.lavender : PALETTE.lavenderLight,
+        gravity: 8, drag: 0.95, shape: 'petal'
+      });
+    }
 
     // Three great lights pulse in sequence, then the whole garden blooms.
     for (let i = 0; i < 3; i++) {
@@ -444,12 +479,25 @@ export class GardenScene extends WorldScene {
     }
 
     if (this.beam) {
-      const speed = 0.62;
+      const speed = 0.55;
       this.beam.t += dt * speed;
+      // A thin trail of sparks follows the light on its way out and back.
+      if (Math.random() < dt * 26) {
+        const point = this.#beamPoint();
+        this.particles.emit({
+          x: point.x + (Math.random() - 0.5) * 6,
+          y: point.y + (Math.random() - 0.5) * 6,
+          vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
+          life: 0.7, maxLife: 0.7, size: 1.8,
+          color: Math.random() < 0.5 ? PALETTE.goldLight : PALETTE.lavenderLight,
+          gravity: 0, drag: 0.94, shape: 'star'
+        });
+      }
       if (this.beam.t >= 1) {
         this.beam.t = 0;
         this.beam.trips += 1;
         this.game.audio.sparkle();
+        this.game.ui.caption(`Journey ${this.beam.trips} of ${this.beam.totalTrips} complete`);
         if (this.beam.trips >= this.beam.totalTrips) {
           const resolve = this.beam.resolve;
           this.beam = null;
@@ -460,6 +508,20 @@ export class GardenScene extends WorldScene {
     }
   }
 
+  /** Where the travelling light is right now, eased at both ends. */
+  #beamPoint() {
+    const from = { x: DAIS.x, y: DAIS.y - 90 };
+    if (!this.beam) return from;
+    const outward = this.beam.t < 0.5;
+    const raw = outward ? this.beam.t * 2 : (1 - this.beam.t) * 2;
+    const eased = raw * raw * (3 - 2 * raw);
+    return {
+      x: from.x + (NEIGHBOUR.x - from.x) * eased,
+      y: from.y + (NEIGHBOUR.y - from.y) * eased,
+      from
+    };
+  }
+
   hint() {
     const level = this.game.save.bumpHint('garden');
     const index = Math.min(level, GARDEN.hintLines.length) - 1;
@@ -467,14 +529,23 @@ export class GardenScene extends WorldScene {
   }
 
   celebrateFragment() {
+    this.playAnim('success', 1.1);
     this.particles.burst(DAIS.x, DAIS.y - 60, 40, {
-      color: ['#ffe9b0', '#f6e7c8'], speed: 70, life: 1.6, size: 3, shape: 'star', gravity: -12
+      color: [PALETTE.goldLight, PALETTE.lavenderLight], speed: 70, life: 1.6, size: 3, shape: 'star', gravity: -12
     });
   }
 
   drawBehind(ctx, time) {
+    // Clouds drift behind the castle before the moon and the stars.
+    drawClouds(ctx, { x: 0, y: 40, width: WORLD.width, height: 150 }, time, THEME.cloud, 5, 21);
     drawMoon(ctx, 220, 92, 34, time);
     drawPersonalStar(ctx, STAR.x, STAR.y, time, 1.25);
+
+    for (const lantern of LANTERNS) {
+      if (this.lit[lantern.id]) {
+        drawLightPool(ctx, lantern.x, lantern.y + 4, 130, PALETTE.goldLight, 0.9);
+      }
+    }
 
     if (this.neighbourGlow > 0) {
       ctx.save();
@@ -494,9 +565,10 @@ export class GardenScene extends WorldScene {
         : 0.6 + 0.25 * Math.sin(time * 1.6 + i * 1.2);
       const radius = (this.celebrating ? 46 : 30) * pulse;
       const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      glow.addColorStop(0, rgba('#fff3cf', 0.85));
-      glow.addColorStop(0.4, rgba('#e9b45f', 0.4));
-      glow.addColorStop(1, rgba('#e9b45f', 0));
+      glow.addColorStop(0, 'rgba(255,248,226,0.9)');
+      glow.addColorStop(0.35, rgba(PALETTE.goldLight, 0.45));
+      glow.addColorStop(0.7, rgba(PALETTE.lavender, 0.22));
+      glow.addColorStop(1, rgba(PALETTE.lavender, 0));
       ctx.fillStyle = glow;
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -511,30 +583,30 @@ export class GardenScene extends WorldScene {
 
     // The travelling light.
     if (this.beam) {
-      const from = { x: DAIS.x, y: DAIS.y - 90 };
-      const outward = this.beam.t < 0.5;
-      const t = outward ? this.beam.t * 2 : (1 - this.beam.t) * 2;
-      const target = NEIGHBOUR;
-      const x = from.x + (target.x - from.x) * t;
-      const y = from.y + (target.y - from.y) * t;
+      const point = this.#beamPoint();
+      const from = point.from;
+      const x = point.x;
+      const y = point.y;
 
       ctx.save();
       const trail = ctx.createLinearGradient(from.x, from.y, x, y);
-      trail.addColorStop(0, rgba('#ffe9b0', 0));
-      trail.addColorStop(1, rgba('#fff6d8', 0.55));
+      trail.addColorStop(0, rgba(PALETTE.lavender, 0));
+      trail.addColorStop(0.6, rgba(PALETTE.lavenderLight, 0.3));
+      trail.addColorStop(1, rgba(PALETTE.goldLight, 0.65));
       ctx.strokeStyle = trail;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3.5;
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(x, y);
       ctx.stroke();
 
-      const glow = ctx.createRadialGradient(x, y, 0, x, y, 26);
-      glow.addColorStop(0, rgba('#fffdf4', 0.95));
-      glow.addColorStop(1, rgba('#ffe9b0', 0));
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, 30);
+      glow.addColorStop(0, 'rgba(255,253,244,0.95)');
+      glow.addColorStop(0.4, rgba(PALETTE.goldLight, 0.4));
+      glow.addColorStop(1, rgba(PALETTE.lavender, 0));
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.arc(x, y, 26, 0, Math.PI * 2);
+      ctx.arc(x, y, 30, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
@@ -547,7 +619,8 @@ export class GardenScene extends WorldScene {
       for (let i = 0; i < 40; i++) {
         const x = 90 + random() * (WORLD.width - 180);
         const y = SHORE_Y + 60 + random() * (WORLD.height - SHORE_Y - 110);
-        drawFlowerCluster(ctx, x, y, 0.9 + random() * 0.5, ['#f6b8c8', '#ffe9b0', '#e2c8f4'], 800 + i, 3);
+        drawFlowerCluster(ctx, x, y, 0.9 + random() * 0.5,
+          [PALETTE.lavender, PALETTE.lavenderLight, PALETTE.goldLight], 800 + i, 3);
       }
       ctx.restore();
     }

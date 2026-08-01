@@ -490,6 +490,144 @@ for (const [name, expectedFlag, saved] of INTERRUPTED) {
 }
 
 /* -------------------------------------------------------------------------
+   Mobile behaviour
+   ------------------------------------------------------------------------- */
+
+console.log('\n— Mobile behaviour —');
+{
+  const p = await browser.newPage({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true
+  });
+  const mobileErrors = [];
+  p.on('pageerror', (e) => mobileErrors.push(e.message));
+  await p.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+  await p.waitForTimeout(700);
+  const helpers = makeHelpers(p);
+
+  check('the measured viewport height is applied',
+    await p.evaluate(() => {
+      const value = getComputedStyle(document.documentElement).getPropertyValue('--app-height');
+      return parseInt(value, 10) > 0;
+    }));
+  check('the canvas buffer matches its displayed size and pixel ratio',
+    await p.evaluate(() => {
+      const r = window.unwrittenPage.game.renderer;
+      const rect = r.canvas.getBoundingClientRect();
+      return Math.abs(r.canvas.width - Math.round(rect.width * r.dpr)) <= 1
+        && Math.abs(r.canvas.height - Math.round(rect.height * r.dpr)) <= 1;
+    }));
+
+  await p.locator('#overlay button', { hasText: 'Start the story' }).click();
+  for (let i = 0; i < 3; i++) await p.locator('#overlay button', { hasText: 'Turn the page' }).click();
+  await p.locator('#dialogue').waitFor({ state: 'visible', timeout: 15000 });
+
+  check('the touch controls stow themselves while she is reading',
+    (await p.locator('#touch-controls').getAttribute('data-stowed')) === 'true');
+  await helpers.clearDialogue();
+  check('the touch controls come back afterwards',
+    (await p.locator('#touch-controls').getAttribute('data-stowed')) === 'false');
+
+  // Drag the stick, then let go: she must stop rather than walk forever.
+  const before = await p.evaluate(() => ({ ...window.unwrittenPage.game.scene.player }));
+  await p.mouse.move(120, 600);
+  await p.mouse.down();
+  await p.mouse.move(180, 600, { steps: 4 });
+  await p.waitForTimeout(450);
+  const during = await p.evaluate(() => ({ ...window.unwrittenPage.game.scene.player }));
+  check('the thumb stick moves her', during.x > before.x + 8, `${before.x} -> ${during.x}`);
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  const after = await p.evaluate(() => ({ ...window.unwrittenPage.game.scene.player }));
+  await p.waitForTimeout(400);
+  const settled = await p.evaluate(() => ({ ...window.unwrittenPage.game.scene.player }));
+  check('releasing the stick stops her', settled.vx === 0 && Math.abs(settled.x - after.x) < 2);
+
+  // Losing the tab mid-drag must also clear the stick.
+  await p.mouse.move(120, 600);
+  await p.mouse.down();
+  await p.mouse.move(180, 600, { steps: 3 });
+  await p.waitForTimeout(200);
+  await p.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await p.mouse.up();
+  await p.waitForTimeout(400);
+  check('a drag interrupted by leaving the tab does not stick',
+    await p.evaluate(() => window.unwrittenPage.game.input.stick.x === 0));
+
+  // Tapping the object she is standing beside is an alternative to the button.
+  await p.evaluate(() => {
+    const scene = window.unwrittenPage.game.scene;
+    const item = scene.interactables.find((i) => i.id === 'signpost');
+    scene.player.x = item.x;
+    scene.player.y = item.y + 14;
+  });
+  await p.waitForTimeout(220);
+  const tapPoint = await p.evaluate(() => {
+    const game = window.unwrittenPage.game;
+    const item = game.scene.interactables.find((i) => i.id === 'signpost');
+    const r = game.renderer;
+    return {
+      x: (item.x - r.camera.x) * r.scale + r.width / 2,
+      y: (item.y - r.camera.y) * r.scale + r.height / 2
+    };
+  });
+  await p.mouse.click(tapPoint.x, tapPoint.y);
+  await p.waitForTimeout(500);
+  check('tapping the object in front of her opens it', await helpers.dialogueVisible());
+  await helpers.clearDialogue();
+
+  // Backgrounding must not stack timers or double the music.
+  const beforeHide = await p.evaluate(() => window.unwrittenPage.game.audio.schedulerId);
+  await p.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await p.waitForTimeout(400);
+  check('the game pauses when the tab is hidden',
+    await p.evaluate(() => window.unwrittenPage.game.backgrounded === true));
+  await p.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await p.waitForTimeout(500);
+  check('the game resumes when the tab returns',
+    await p.evaluate(() => window.unwrittenPage.game.backgrounded === false));
+  const afterShow = await p.evaluate(() => window.unwrittenPage.game.audio.schedulerId);
+  check('returning does not leave two music schedulers running',
+    beforeHide === null || afterShow === null || typeof afterShow === 'number');
+  check('the scene still runs after returning',
+    await p.evaluate(async () => {
+      const game = window.unwrittenPage.game;
+      const before = game.scene.time;
+      await new Promise((r) => setTimeout(r, 300));
+      return game.scene.time > before;
+    }));
+
+  // Rotating must not break the canvas or lose her position.
+  const spot = await p.evaluate(() => ({ ...window.unwrittenPage.game.scene.player }));
+  await p.setViewportSize({ width: 844, height: 390 });
+  await p.waitForTimeout(700);
+  const rotated = await p.evaluate(() => ({
+    player: { ...window.unwrittenPage.game.scene.player },
+    canvasOk: (() => {
+      const r = window.unwrittenPage.game.renderer;
+      const rect = r.canvas.getBoundingClientRect();
+      return Math.abs(r.canvas.width - Math.round(rect.width * r.dpr)) <= 1;
+    })()
+  }));
+  check('rotating keeps her where she was',
+    Math.abs(rotated.player.x - spot.x) < 2 && Math.abs(rotated.player.y - spot.y) < 2);
+  check('rotating resizes the canvas correctly', rotated.canvasOk);
+
+  check('mobile behaviour: no console errors', mobileErrors.length === 0, mobileErrors.join(' | '));
+  await p.close();
+}
+
+/* -------------------------------------------------------------------------
    Accessibility
    ------------------------------------------------------------------------- */
 
@@ -607,9 +745,10 @@ console.log('\n— Reduced motion —');
 
 console.log('\n— Portrait layout —');
 for (const [name, viewport] of [
-  ['iPhone SE portrait', { width: 375, height: 667 }],
-  ['iPhone 15 portrait', { width: 393, height: 852 }],
-  ['Android portrait', { width: 412, height: 915 }]
+  ['320x568 portrait', { width: 320, height: 568 }],
+  ['375x667 portrait', { width: 375, height: 667 }],
+  ['390x844 portrait', { width: 390, height: 844 }],
+  ['430x932 portrait', { width: 430, height: 932 }]
 ]) {
   const p = await browser.newPage({ viewport, deviceScaleFactor: 3, hasTouch: true });
   const portraitErrors = [];

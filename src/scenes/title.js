@@ -9,8 +9,9 @@ import { createBuffer } from '../engine/renderer.js';
 import { AmbientDrift } from '../engine/particles.js';
 import {
   paintNightSky, drawMoon, drawPersonalStar, drawTree, drawVignette,
-  drawLampPost, makeRandom, drawThreeStars, rgba
+  drawLampPost, makeRandom, drawThreeStars, paintMist, rgba
 } from '../engine/art.js';
+import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
 import { PROLOGUE_PAGES } from '../data/dialogue.js';
 
 export class TitleScene {
@@ -30,7 +31,7 @@ export class TitleScene {
       bounds: { x: 0, y: this.height * 0.45, width: this.width, height: this.height * 0.55 },
       style: 'firefly'
     });
-    this.fireflies.palette = { core: '#ffe4a0' };
+    this.fireflies.palette = { core: PALETTE.goldLight };
     // Not awaited: the menu lives alongside the animation instead of blocking it.
     this.#showMenu();
   }
@@ -38,10 +39,11 @@ export class TitleScene {
   #paintBackdrop() {
     const { width, height } = this;
     return createBuffer(width, height, (ctx) => {
-      paintNightSky(ctx, width, height, { top: '#100d22', bottom: '#2b2647', starCount: 130, seed: 5 });
+      const theme = SCENE_THEMES.title;
+      paintNightSky(ctx, width, height, { top: theme.skyTop, bottom: theme.skyBottom, starCount: 130, seed: 5 });
 
       // Distant hills.
-      ctx.fillStyle = '#191634';
+      ctx.fillStyle = theme.horizon;
       ctx.beginPath();
       ctx.moveTo(0, height * 0.62);
       ctx.quadraticCurveTo(width * 0.3, height * 0.5, width * 0.6, height * 0.62);
@@ -56,11 +58,11 @@ export class TitleScene {
       ctx.fillRect(0, height * 0.78, width, height * 0.22);
 
       const random = makeRandom(17);
-      const far = { bark: '#1d1a30', leaf: '#20304a', leafDark: '#182338', rim: '#8fa8d8' };
+      const far = { bark: '#1d1a30', leaf: '#252c4e', leafDark: '#191f3a', rim: PALETTE.lavender };
       for (let i = 0; i < 14; i++) {
         drawTree(ctx, random() * width, height * (0.68 + random() * 0.06), 0.7 + random() * 0.3, far, 100 + i);
       }
-      const near = { bark: '#241b26', leaf: '#1f3a34', leafDark: '#16292a', rim: '#a8c2e8' };
+      const near = { bark: '#241b26', leaf: '#1f3a34', leafDark: '#16292a', rim: PALETTE.lavenderLight };
       for (let i = 0; i < 8; i++) {
         drawTree(ctx, random() * width, height * (0.86 + random() * 0.12), 1.1 + random() * 0.5, near, 200 + i);
       }
@@ -74,6 +76,8 @@ export class TitleScene {
       ctx.quadraticCurveTo(width * 0.62, height * 0.88, width * 0.66, height);
       ctx.closePath();
       ctx.fill();
+
+      paintMist(ctx, width, height, 'rgba(185,163,227,0.12)', 63, 5);
     });
   }
 
@@ -182,14 +186,14 @@ export class TitleScene {
 
     drawMoon(ctx, this.width * 0.18, this.height * 0.2, 34, this.time);
     drawPersonalStar(ctx, this.width * 0.78, this.height * 0.24, this.time, 1.1);
-    drawThreeStars(ctx, this.width * 0.5, this.height * 0.12, 0.9, '#dde5f2', [true, true, true], this.time);
+    drawThreeStars(ctx, this.width * 0.5, this.height * 0.12, 0.9, PALETTE.silver, [true, true, true], this.time);
     drawLampPost(ctx, this.width * 0.14, this.height * 0.95, 1.3, true, this.time);
     drawLampPost(ctx, this.width * 0.88, this.height * 0.99, 1.5, true, this.time + 1.4);
 
     this.fireflies.draw(ctx, this.time, this.fireflies.palette);
     ctx.restore();
 
-    drawVignette(ctx, renderer.width, renderer.height, 0.62);
+    drawVignette(ctx, renderer.width, renderer.height, 0.5);
   }
 }
 

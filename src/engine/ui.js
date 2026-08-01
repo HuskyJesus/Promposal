@@ -9,6 +9,7 @@
 
 import { drawPortrait } from './sprites.js';
 import { fill } from '../config.js';
+import { SPEAKER_THEMES } from './theme.js';
 
 /** Small helper for building elements without a template language. */
 export function el(tag, props = {}, children = []) {
@@ -55,6 +56,11 @@ export class UI {
     this.panelStack = [];
 
     this.overlay.addEventListener('keydown', (event) => this.#handleOverlayKey(event));
+    // The thumb stick and action button step aside while she is reading, so
+    // no line of dialogue ever sits underneath a control.
+    this.dialogue.onVisibilityChange = (talking) => {
+      this.touchControls.dataset.stowed = String(talking);
+    };
     this.#buildFragmentTrack();
   }
 
@@ -285,6 +291,9 @@ export class DialogueBox {
     this.resolve = null;
     this.heroName = 'You';
     this.awaitingChoice = false;
+    this.lastAdvance = 0;
+    /** Set by the UI so the thumb stick can step aside while she reads. */
+    this.onVisibilityChange = () => {};
 
     this.root.addEventListener('click', (event) => {
       if (event.target.closest('.dialogue-choices')) return;
@@ -310,7 +319,9 @@ export class DialogueBox {
     this.chosen = null;
     this.active = true;
     this.root.hidden = false;
+    this.lastAdvance = performance.now();
     this.#sizePortrait();
+    this.onVisibilityChange(true);
     this.#next();
     return new Promise((resolve) => { this.resolve = resolve; });
   }
@@ -333,6 +344,12 @@ export class DialogueBox {
     const speakerName = this.current.name || (this.current.who === 'hero' ? this.heroName : style.name);
     this.nameNode.textContent = speakerName || '';
     this.root.setAttribute('aria-label', `${speakerName || 'Story'} says: ${this.current.text}`);
+
+    // Each speaker tints the box, on top of the portrait and the printed name.
+    const theme = SPEAKER_THEMES[this.current.who] || SPEAKER_THEMES.narrator;
+    this.root.dataset.speaker = this.current.who || 'narrator';
+    this.root.style.setProperty('--speaker-accent', theme.accent);
+    this.root.style.setProperty('--speaker-glow', theme.glow);
 
     if (this.settings.textSpeed === 'instant' || this.settings.reducedMotion) {
       this.revealed = this.current.text.length;
@@ -371,9 +388,16 @@ export class DialogueBox {
     if (first) first.focus({ preventScroll: true });
   }
 
-  /** Tap / Space: first completes the line, then moves on. */
+  /**
+   * Tap / Space: the first press completes the line, the next moves on.
+   * A short guard stops one enthusiastic tap being read as two presses and
+   * skipping a line unseen.
+   */
   advance() {
     if (!this.active || this.awaitingChoice) return;
+    const now = performance.now();
+    if (now - this.lastAdvance < 180) return;
+    this.lastAdvance = now;
     const full = this.current.text.length;
     if (this.revealed < full) {
       this.revealed = full;
@@ -389,6 +413,7 @@ export class DialogueBox {
     this.active = false;
     this.current = null;
     this.root.hidden = true;
+    this.onVisibilityChange(false);
     const resolve = this.resolve;
     this.resolve = null;
     if (resolve) resolve(this.chosen);

@@ -12,8 +12,8 @@ import { drawSymbolGlyph } from '../engine/sprites.js';
 import { config } from '../config.js';
 
 import {
-  SYMBOLS, SYMBOL_NAMES, ROUNDS, createTrialState, currentRound,
-  submitChoice, feedbackForWrongChoice, hintForRound, counterTo
+  SYMBOLS, SYMBOL_NAMES, WINS_AGAINST, ROUNDS, createTrialState, currentRound,
+  submitChoice, feedbackForWrongChoice, hintForRound
 } from './guardianTrial.js';
 
 import {
@@ -107,6 +107,7 @@ export function runGuardianTrial(game) {
         card.append(el('span', { class: 'card-mark', text: 'Wins' }));
         [...grid.querySelectorAll('button')].forEach((b) => { b.disabled = true; });
         game.audio.success();
+        game.scene?.cheerTheo?.('proud', 0.9);
         setFeedback(feedback, `${SYMBOL_NAMES[symbol]} defeats ${SYMBOL_NAMES[result.guardian]}. The guardian bows and steps aside.`, 'good');
 
         setTimeout(() => {
@@ -122,6 +123,7 @@ export function runGuardianTrial(game) {
         card.dataset.state = 'wrong';
         card.append(el('span', { class: 'card-mark', text: 'No' }));
         game.audio.gentleNo();
+        game.scene?.cheerTheo?.('worried', 0.4);
         setFeedback(feedback, feedbackForWrongChoice(result.guardian, symbol), 'soft');
         setTimeout(() => {
           card.dataset.state = '';
@@ -144,6 +146,13 @@ export function runGuardianTrial(game) {
     renderRound();
     setFeedback(feedback, 'Choose the symbol that defeats the one the guardian is holding.', 'neutral');
 
+    // The rules the guardians recited, kept on screen. Remembering three
+    // sentences is not the puzzle; working out which one applies is.
+    const ruleRing = el('div', { class: 'rule-ring', 'aria-label': 'The three rules' },
+      SYMBOLS.map((symbol) => el('span', {
+        text: `${SYMBOL_NAMES[symbol]} beats ${SYMBOL_NAMES[WINS_AGAINST[symbol]]}`
+      })));
+
     return el('div', { class: 'panel', role: 'dialog', 'aria-label': 'The Trial of Stone, Scroll and Shears' }, [
       el('h2', { class: 'panel-title', text: 'Stone, Scroll and Shears' }),
       el('p', { class: 'panel-subtitle', text: 'Answer each guardian with the symbol that defeats theirs.' }),
@@ -151,6 +160,7 @@ export function runGuardianTrial(game) {
       guardianArt,
       promptNode,
       flavourNode,
+      ruleRing,
       grid,
       feedback,
       el('div', { class: 'panel-actions' }, [
@@ -170,7 +180,7 @@ export function runGuardianTrial(game) {
    Chapter 3a — the divided mural
    ========================================================================= */
 
-export function runMuralPuzzle(game) {
+export function runMuralPuzzle(game, { onProgress } = {}) {
   const state = createMuralState();
 
   return game.ui.openPanel((close) => {
@@ -200,8 +210,14 @@ export function runMuralPuzzle(game) {
         return button;
       };
 
-      darkColumn.replaceChildren(...darkPanels().map((p) => build(p, 'dark')));
-      lightColumn.replaceChildren(...lightPanels().map((p) => build(p, 'light')));
+      darkColumn.replaceChildren(
+        el('p', { class: 'mural-heading', text: 'Dark half' }),
+        ...darkPanels().map((p) => build(p, 'dark'))
+      );
+      lightColumn.replaceChildren(
+        el('p', { class: 'mural-heading', text: 'Light half' }),
+        ...lightPanels().map((p) => build(p, 'light'))
+      );
     };
 
     const onPick = (panel, side) => {
@@ -227,6 +243,9 @@ export function runMuralPuzzle(game) {
 
       if (result.correct) {
         game.audio.collect();
+        game.scene?.cheerTheo?.('delighted', 0.8);
+        // The hall regains a little colour with every pair that joins.
+        onProgress?.(state.matched.length / MURAL_PAIRS.length);
         setFeedback(feedback, result.joined, 'good');
         if (result.complete) {
           setTimeout(() => {
@@ -286,6 +305,7 @@ export function runStorykeeperTrial(game) {
 
   return game.ui.openPanel((close) => {
     const counter = el('p', { class: 'panel-subtitle' });
+    const progress = el('div', { class: 'round-track', role: 'img', 'aria-label': 'Question progress' });
     const questionNode = el('h3', { class: 'trivia-question' });
     const answers = el('div', { class: 'answer-list' });
     const feedback = feedbackNode();
@@ -294,6 +314,10 @@ export function runStorykeeperTrial(game) {
       const question = currentQuestion(state);
       if (!question) return;
       counter.textContent = `Question ${state.index + 1} of ${QUESTIONS.length}`;
+      progress.replaceChildren(...QUESTIONS.map((_, i) => el('span', {
+        class: 'round-dot',
+        dataset: { done: String(i < state.index), current: String(i === state.index) }
+      })));
       questionNode.textContent = question.prompt;
       answers.replaceChildren(
         ...question.answers.map((answer, i) => {
@@ -318,6 +342,7 @@ export function runStorykeeperTrial(game) {
         button.dataset.state = 'right';
         [...answers.querySelectorAll('button')].forEach((b) => { b.disabled = true; });
         game.audio.success();
+        game.scene?.cheerTheo?.('proud', 0.9);
         setFeedback(feedback, result.question.afterword, 'good');
         setTimeout(() => {
           if (result.finished) {
@@ -353,6 +378,7 @@ export function runStorykeeperTrial(game) {
     return el('div', { class: 'panel', role: 'dialog', 'aria-label': "The Storykeeper's Trial" }, [
       el('h2', { class: 'panel-title', text: "The Storykeeper's Trial" }),
       counter,
+      progress,
       questionNode,
       answers,
       feedback,

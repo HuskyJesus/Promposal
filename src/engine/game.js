@@ -9,6 +9,7 @@ import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { SaveStore } from './save.js';
 import { UI, el, wait } from './ui.js';
+import { applyThemeVariables } from './theme.js';
 
 export class Game {
   constructor() {
@@ -33,8 +34,10 @@ export class Game {
     this.lastFrame = 0;
     this.running = false;
 
+    applyThemeVariables();
     this.#bindShell();
     this.#applyMotionPreference();
+    this.#syncViewportHeight();
   }
 
   register(name, factory) {
@@ -42,16 +45,37 @@ export class Game {
   }
 
   #bindShell() {
-    window.addEventListener('resize', () => {
+    const relayout = () => {
+      this.#syncViewportHeight();
       this.renderer.resize();
       this.#checkOrientation();
-    });
+    };
+    window.addEventListener('resize', relayout);
+    // Mobile browsers slide their toolbars in and out without firing resize.
+    window.visualViewport?.addEventListener('resize', relayout);
     window.addEventListener('orientationchange', () => {
-      setTimeout(() => {
-        this.renderer.resize();
-        this.#checkOrientation();
-      }, 200);
+      this.input.releaseAll();
+      // Safari reports the old size until after the rotation settles.
+      setTimeout(relayout, 120);
+      setTimeout(relayout, 400);
     });
+
+    // Backgrounding the tab must not leave music playing or timers stacking.
+    document.addEventListener('visibilitychange', () => {
+      const active = !document.hidden;
+      this.backgrounded = !active;
+      this.audio.setActive(active);
+      this.input.releaseAll();
+      if (active) this.lastFrame = performance.now();
+    });
+
+    // Tapping the thing she is standing next to also works.
+    this.input.onStageTap = (clientX, clientY) => {
+      if (this.paused || this.ui.panelOpen || this.ui.dialogue.active) return;
+      const rect = this.renderer.canvas.getBoundingClientRect();
+      const point = this.renderer.screenToWorld(clientX - rect.left, clientY - rect.top);
+      this.scene?.tapAt?.(point.x, point.y);
+    };
 
     this.ui.menuButton.addEventListener('click', () => {
       this.audio.unlock();
@@ -73,6 +97,15 @@ export class Game {
     const unlock = () => this.audio.unlock();
     window.addEventListener('pointerdown', unlock, { once: false });
     window.addEventListener('keydown', unlock, { once: false });
+  }
+
+  /**
+   * 100vh is wrong on mobile browsers whose toolbars overlap the page, so the
+   * layout uses a measured height instead.
+   */
+  #syncViewportHeight() {
+    const height = window.visualViewport?.height || window.innerHeight;
+    document.documentElement.style.setProperty('--app-height', `${Math.round(height)}px`);
   }
 
   #applyMotionPreference() {
@@ -140,8 +173,13 @@ export class Game {
   }
 
   #tick(dt) {
+    // Nothing to draw while the tab is hidden, and no reason to burn battery.
+    if (this.backgrounded) return;
+
     this.time += dt;
     this.ui.dialogue.update(dt);
+    this.audio.duck(this.ui.dialogue.active);
+    this.renderer.updateCamera(dt, this.settings.reducedMotion);
 
     if (this.input.takeCancel()) {
       if (this.ui.panelOpen) {

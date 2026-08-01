@@ -126,10 +126,3 @@ export function fill(text) {
     .replace(/\{guide\}/g, config.guideName)
     .replace(/\{endearment\}/g, config.endearment || config.heroName);
 }
-
-/** Pushes the configured palette into CSS custom properties. */
-export function applyTheme(root = document.documentElement) {
-  for (const [key, value] of Object.entries(config.colors)) {
-    root.style.setProperty(`--c-${key}`, value);
-  }
-}

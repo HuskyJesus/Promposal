@@ -194,9 +194,9 @@ export function drawTree(ctx, x, y, scale, palette, seed = 1) {
     // The second pass sits up and to the left of the first, so it reads as
     // moonlight catching one side of the canopy rather than a ring.
     const color = pass === 0 ? palette.leafDark : palette.leaf;
-    const shrink = pass === 0 ? 1 : 0.78;
-    const offsetX = pass === 0 ? 0 : -8 * scale;
-    const offsetY = pass === 0 ? 0 : -9 * scale;
+    const shrink = pass === 0 ? 1 : 0.88;
+    const offsetX = pass === 0 ? 0 : -6 * scale;
+    const offsetY = pass === 0 ? 0 : -7 * scale;
     ctx.fillStyle = color;
     ctx.beginPath();
     for (let i = 0; i < lobes; i++) {
@@ -708,40 +708,223 @@ export function drawPersonalStar(ctx, x, y, time, scale = 1, color = '#ffe9a8') 
 }
 
 /* -------------------------------------------------------------------------
+   Atmosphere and depth
+   ------------------------------------------------------------------------- */
+
+/** Soft drifting bands of mist, baked into a scene's background buffer. */
+export function paintMist(ctx, width, height, color, seed = 3, bands = 7) {
+  const random = makeRandom(seed);
+  ctx.save();
+  for (let i = 0; i < bands; i++) {
+    const y = height * (0.18 + random() * 0.75);
+    const h = 90 + random() * 180;
+    const gradient = ctx.createLinearGradient(0, y - h / 2, 0, y + h / 2);
+    gradient.addColorStop(0, 'rgba(255,255,255,0)');
+    gradient.addColorStop(0.5, color);
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, y - h / 2, width, h);
+  }
+  ctx.restore();
+}
+
+/**
+ * Pools of moonlight on the ground. These are drawn live rather than baked so
+ * they can breathe, which is what stops a flat top-down floor reading as felt.
+ */
+export function drawLightPools(ctx, pools, time, color, intensity = 1) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < pools.length; i++) {
+    const pool = pools[i];
+    const pulse = 0.82 + Math.sin(time * 0.7 + i * 1.9) * 0.18;
+    const r = pool.r * pulse;
+    const gradient = ctx.createRadialGradient(pool.x, pool.y, 0, pool.x, pool.y, r);
+    gradient.addColorStop(0, rgba(color, 0.5 * intensity));
+    gradient.addColorStop(0.55, rgba(color, 0.16 * intensity));
+    gradient.addColorStop(1, rgba(color, 0));
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.ellipse(pool.x, pool.y, r, r * (pool.squash ?? 0.62), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** A warm pool of light beneath a lantern or a lit window. */
+export function drawLightPool(ctx, x, y, radius, color, intensity = 1, squash = 0.5) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  gradient.addColorStop(0, rgba(color, 0.42 * intensity));
+  gradient.addColorStop(1, rgba(color, 0));
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.ellipse(x, y, radius, radius * squash, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Grass and flower heads that lean in a slow breeze. Only the tufts near the
+ * camera are animated; the rest of the undergrowth stays baked.
+ */
+export function drawSwayingTufts(ctx, tufts, time, bounds) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (let i = 0; i < tufts.length; i++) {
+    const tuft = tufts[i];
+    if (tuft.x < bounds.left || tuft.x > bounds.right || tuft.y < bounds.top || tuft.y > bounds.bottom) continue;
+    const lean = Math.sin(time * 1.4 + tuft.phase) * tuft.amp;
+    ctx.strokeStyle = tuft.color;
+    ctx.lineWidth = tuft.width;
+    for (let blade = -1; blade <= 1; blade++) {
+      ctx.beginPath();
+      ctx.moveTo(tuft.x + blade * tuft.width * 1.6, tuft.y);
+      ctx.quadraticCurveTo(
+        tuft.x + blade * tuft.width * 1.6 + lean * 0.5,
+        tuft.y - tuft.height * 0.6,
+        tuft.x + blade * tuft.width * 1.6 + lean,
+        tuft.y - tuft.height
+      );
+      ctx.stroke();
+    }
+    if (tuft.bloom) {
+      ctx.fillStyle = tuft.bloom;
+      ctx.beginPath();
+      ctx.arc(tuft.x + lean, tuft.y - tuft.height, tuft.width * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * Screen-space foreground foliage. Drawn after everything else with a slight
+ * camera-driven offset, which gives a flat top-down scene real depth for very
+ * little cost.
+ */
+export function drawForegroundFoliage(ctx, width, height, sprite, camera, strength = 0.04) {
+  const offsetX = -camera.x * strength;
+  const offsetY = -camera.y * strength;
+  ctx.save();
+  ctx.globalAlpha = 0.72;
+  sprite.draw(ctx, offsetX, offsetY);
+  ctx.translate(width, height);
+  ctx.rotate(Math.PI);
+  sprite.draw(ctx, -offsetX, -offsetY);
+  ctx.restore();
+}
+
+/** Slow clouds crossing a night sky. */
+export function drawClouds(ctx, bounds, time, color, count = 4, seed = 9) {
+  const random = makeRandom(seed);
+  ctx.save();
+  for (let i = 0; i < count; i++) {
+    const baseY = bounds.y + random() * bounds.height;
+    const scale = 0.6 + random() * 0.9;
+    const speed = 4 + random() * 7;
+    const span = bounds.width + 400;
+    const x = bounds.x - 200 + ((random() * span + time * speed) % span);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let lobe = 0; lobe < 5; lobe++) {
+      const lx = x + lobe * 26 * scale;
+      const ly = baseY + Math.sin(lobe * 1.7) * 6 * scale;
+      ctx.moveTo(lx + 30 * scale, ly);
+      ctx.arc(lx, ly, (18 + (lobe % 2) * 10) * scale, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* -------------------------------------------------------------------------
    Interface bits drawn in the world
    ------------------------------------------------------------------------- */
 
-/** The bobbing marker over anything the player can interact with. */
-export function drawInteractPrompt(ctx, x, y, time, color = '#ffdb92', ready = true) {
-  const bob = Math.sin(time * 3.2) * 3;
+/**
+ * The marker over anything the player can interact with.
+ *
+ * It is never colour alone: the shape changes as well as the tint, the ring
+ * closes when the object is in reach, and the whole thing bobs, so it reads on
+ * a small screen and to anyone who cannot separate the two golds.
+ */
+export function drawInteractPrompt(ctx, x, y, time, color = '#ffdb92', ready = true, reducedMotion = false) {
+  const bob = reducedMotion ? 0 : Math.sin(time * 3.2) * 3;
   ctx.save();
   ctx.translate(x, y + bob);
-  ctx.globalAlpha = ready ? 1 : 0.5;
+  ctx.globalAlpha = ready ? 1 : 0.45;
 
-  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 18);
-  glow.addColorStop(0, rgba(color, 0.5));
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, ready ? 22 : 16);
+  glow.addColorStop(0, rgba(color, ready ? 0.55 : 0.3));
   glow.addColorStop(1, rgba(color, 0));
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(0, 0, 18, 0, Math.PI * 2);
+  ctx.arc(0, 0, ready ? 22 : 16, 0, Math.PI * 2);
   ctx.fill();
 
-  // A downward chevron plus a diamond: shape, not just colour, marks it.
-  ctx.fillStyle = color;
-  starPath(ctx, 0, 0, 7, 4, 0.3);
-  ctx.fill();
-  ctx.strokeStyle = rgba('#2f2338', 0.55);
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
+  if (ready) {
+    // A closed ring plus a filled star: in range.
+    const pulse = reducedMotion ? 1 : 1 + Math.sin(time * 4) * 0.08;
+    ctx.strokeStyle = rgba(color, 0.9);
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(0, 0, 11 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = color;
+    starPath(ctx, 0, 0, 7, 4, 0.3);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(30,22,44,0.7)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    // A small downward chevron pointing at the object.
+    ctx.strokeStyle = rgba(color, 0.85);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-4, 15);
+    ctx.lineTo(0, 19);
+    ctx.lineTo(4, 15);
+    ctx.stroke();
+  } else {
+    // A broken ring and a hollow centre: something is here, but not in reach.
+    ctx.strokeStyle = rgba(color, 0.75);
+    ctx.lineWidth = 1.6;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, i * Math.PI / 2 + 0.24, (i + 1) * Math.PI / 2 - 0.24);
+      ctx.stroke();
+    }
+  }
   ctx.restore();
   ctx.globalAlpha = 1;
 }
 
-/** Soft vignette that focuses attention toward the middle of the screen. */
-export function drawVignette(ctx, width, height, strength = 0.55) {
-  const g = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * 0.32, width / 2, height / 2, Math.max(width, height) * 0.75);
+/**
+ * Soft vignette that focuses attention toward the middle of the screen.
+ * Kept deliberately gentle: the centre must stay bright enough to read on a
+ * phone at normal brightness.
+ */
+export function drawVignette(ctx, width, height, strength = 0.45, tint = '#0a0718') {
+  const inner = Math.min(width, height) * 0.42;
+  const outer = Math.max(width, height) * 0.78;
+  const g = ctx.createRadialGradient(width / 2, height / 2, inner, width / 2, height / 2, outer);
   g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(1, `rgba(6,4,14,${strength})`);
+  g.addColorStop(1, rgba(tint, strength));
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, width, height);
+}
+
+/**
+ * A whole-screen colour wash that gives each chapter its own air: cool blue in
+ * the woods, warm amber at the cottage, silver in the hall.
+ */
+export function drawAtmosphere(ctx, width, height, color, strength = 0.1) {
+  if (strength <= 0) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'soft-light';
+  ctx.fillStyle = rgba(color, Math.min(1, strength * 3));
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
 }

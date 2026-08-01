@@ -10,8 +10,9 @@ import { createBuffer } from '../engine/renderer.js';
 import {
   paintGround, paintNightSky, paintStonePath, drawTree, drawMushroom, drawFlowerCluster,
   drawFern, drawLantern, drawMoon, drawPersonalStar, drawArch, drawThreeStars,
-  makeRandom, makeSprite, rgba, mix, starPath
+  paintMist, drawLightPool, makeRandom, makeSprite, rgba, mix, starPath
 } from '../engine/art.js';
+import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
 import { drawFrog, drawBird, drawChattyFlowers } from '../engine/sprites.js';
 import { WOODS } from '../data/dialogue.js';
 import { GOSSIP } from '../data/gossip.js';
@@ -40,21 +41,19 @@ const LANDMARKS = {
   log: { x: 300, y: 880 }
 };
 
-const PALETTE = {
-  bark: '#3a2a2c',
-  leaf: '#2f6a51',
-  leafDark: '#1f4a3a',
-  rim: '#9fc6e8'
-};
+const THEME = SCENE_THEMES.woods;
+const TREE = THEME.tree;
 
 export class WoodsScene extends WorldScene {
   constructor(game) {
     super(game);
     this.world = WORLD;
-    this.skyColor = '#0f0d1e';
-    this.vignetteStrength = 0.55;
-    this.player = { x: 700, y: 790, facing: 'up', moving: false, walkTime: 0 };
-    this.theo = { x: 660, y: 812, visible: true, mood: 'happy', facing: 'right' };
+    this.skyColor = THEME.skyTop;
+    this.vignetteStrength = THEME.vignette;
+    this.atmosphere = PALETTE.moonlit;
+    this.atmosphereStrength = 0.045;
+    Object.assign(this.player, { x: 700, y: 790, facing: 'up', moving: false, walkTime: 0 });
+    Object.assign(this.theo, { x: 660, y: 812, visible: true, mood: 'happy', facing: 'right' });
   }
 
   async enter(payload = {}) {
@@ -70,6 +69,20 @@ export class WoodsScene extends WorldScene {
     this.#buildScenery();
     this.#buildInteractables();
     this.#refreshObjective();
+
+    this.lightPools = [
+      { x: 430, y: 520, r: 120 }, { x: 900, y: 430, r: 150 },
+      { x: 1180, y: 760, r: 130 }, { x: 640, y: 880, r: 110 },
+      { x: 240, y: 640, r: 100 }
+    ];
+    this.seedTufts({
+      count: 150,
+      bounds: { x: 20, y: SHORE_Y + 10, width: WORLD.width - 40, height: WORLD.height - SHORE_Y - 30 },
+      colors: ['#3f7d5c', '#356b4c', '#4b8f68'],
+      blooms: THEME.flowers,
+      seed: 4711
+    });
+    this.foreground = this.#buildForeground();
 
     this.drifts = [];
     this.addDrift({
@@ -104,6 +117,39 @@ export class WoodsScene extends WorldScene {
     }
   }
 
+  /** Branches hanging into frame, drawn over everything with a slight drift. */
+  #buildForeground() {
+    return makeSprite({
+      width: 330, height: 230, anchorX: 0, anchorY: 0,
+      paint: (ctx) => {
+        const random = makeRandom(6161);
+        ctx.strokeStyle = '#1a1416';
+        ctx.lineCap = 'round';
+        for (let branch = 0; branch < 3; branch++) {
+          const y = -20 + branch * 34;
+          ctx.lineWidth = 9 - branch * 2;
+          ctx.beginPath();
+          ctx.moveTo(-30, y);
+          ctx.quadraticCurveTo(120, y + 40 + branch * 10, 250 - branch * 40, y + 20 + branch * 30);
+          ctx.stroke();
+          for (let leaf = 0; leaf < 12; leaf++) {
+            const t = 0.15 + random() * 0.85;
+            const lx = -30 + (280 - branch * 40) * t;
+            const ly = y + (40 + branch * 12) * t * (0.7 + random() * 0.5);
+            ctx.save();
+            ctx.translate(lx, ly);
+            ctx.rotate(random() * Math.PI);
+            ctx.fillStyle = random() < 0.5 ? '#16332a' : '#1d4234';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 16 + random() * 12, 8 + random() * 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      }
+    });
+  }
+
   /* ------------------------------------------------------------- scenery */
 
   #buildSprites() {
@@ -116,7 +162,7 @@ export class WoodsScene extends WorldScene {
         height: 150 * scale,
         anchorX: 75 * scale,
         anchorY: 136 * scale,
-        paint: (ctx) => drawTree(ctx, 0, 0, scale, PALETTE, 900 + i)
+        paint: (ctx) => drawTree(ctx, 0, 0, scale, TREE, 900 + i)
       }));
     }
 
@@ -205,9 +251,9 @@ export class WoodsScene extends WorldScene {
     const { width, height } = WORLD;
     return createBuffer(width, height, (ctx) => {
       // Sky and distant treeline along the top of the map.
-      paintNightSky(ctx, width, SHORE_Y, { top: '#0d0b1c', bottom: '#241f3d', starCount: 90, seed: 11 });
+      paintNightSky(ctx, width, SHORE_Y, { top: THEME.skyTop, bottom: THEME.skyBottom, starCount: 90, seed: 11 });
       const random = makeRandom(303);
-      ctx.fillStyle = '#151327';
+      ctx.fillStyle = THEME.horizon;
       for (let i = 0; i < 40; i++) {
         const x = random() * width;
         const h = 40 + random() * 60;
@@ -220,7 +266,7 @@ export class WoodsScene extends WorldScene {
 
       // Forest floor.
       const floor = createBuffer(width, height - 190, (fctx, w, h) => {
-        paintGround(fctx, w, h, { base: '#22422f', patch: '#2f6a45', seed: 31, patchCount: 300 });
+        paintGround(fctx, w, h, { base: THEME.ground, patch: THEME.groundPatch, seed: 31, patchCount: 300 });
       });
       ctx.drawImage(floor, 0, 190);
 
@@ -232,17 +278,17 @@ export class WoodsScene extends WorldScene {
       }
       ctx.save();
       ctx.lineCap = 'round';
-      ctx.strokeStyle = '#1c3d4e';
+      ctx.strokeStyle = THEME.water.deep;
       ctx.lineWidth = 78;
       ctx.beginPath();
       riverPoints.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
       ctx.stroke();
-      ctx.strokeStyle = '#2c6079';
+      ctx.strokeStyle = THEME.water.mid;
       ctx.lineWidth = 62;
       ctx.beginPath();
       riverPoints.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
       ctx.stroke();
-      ctx.strokeStyle = rgba('#9fd8e8', 0.25);
+      ctx.strokeStyle = rgba(THEME.water.foam, 0.25);
       ctx.lineWidth = 6;
       ctx.beginPath();
       riverPoints.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y - 18) : ctx.moveTo(p.x, p.y - 18)));
@@ -274,9 +320,18 @@ export class WoodsScene extends WorldScene {
         const y = SHORE_Y + detail() * (height - SHORE_Y - 20);
         const roll = detail();
         if (roll < 0.35) drawFern(ctx, x, y, 0.7 + detail() * 0.7, '#2c6247', 400 + i);
-        else if (roll < 0.6) drawFlowerCluster(ctx, x, y, 0.7 + detail() * 0.5, ['#d98a9a', '#e9b45f', '#c8b8e8'], 500 + i, 3);
+        else if (roll < 0.6) drawFlowerCluster(ctx, x, y, 0.7 + detail() * 0.5, THEME.flowers, 500 + i, 3);
         else if (roll < 0.78) drawMushroom(ctx, x, y, 0.7 + detail() * 0.6, { cap: '#b8524d', stem: '#e6dcc4' }, 600 + i);
       }
+
+      // Deep shade under the canopy at the north edge, thinning southwards.
+      const shade = ctx.createLinearGradient(0, SHORE_Y, 0, SHORE_Y + 220);
+      shade.addColorStop(0, rgba(THEME.canopy, 0.5));
+      shade.addColorStop(1, rgba(THEME.canopy, 0));
+      ctx.fillStyle = shade;
+      ctx.fillRect(0, SHORE_Y, width, 220);
+
+      paintMist(ctx, width, height, THEME.mist, 17, 6);
     });
   }
 
@@ -463,9 +518,12 @@ export class WoodsScene extends WorldScene {
     if (this.game.save.has('moonflowers', flower.id)) return;
     this.game.save.addToSet('moonflowers', flower.id);
     this.game.audio.collect();
-    this.particles.burst(flower.x, flower.y - 16, 26, {
-      color: ['#f6f0ff', '#cfe0ff', '#ffe9b0'],
-      speed: 60, life: 1.2, size: 2.6, shape: 'star', gravity: -18
+    this.playAnim('collect', 0.7);
+    this.cheerTheo('delighted', 0.9);
+    if (!this.game.settings.reducedMotion) this.game.renderer.emphasise(0.07);
+    this.particles.burst(flower.x, flower.y - 16, 30, {
+      color: [PALETTE.lavenderLight, '#f6f0ff', PALETTE.lavender, PALETTE.goldLight],
+      speed: 64, life: 1.3, size: 2.6, shape: 'star', gravity: -18
     });
     this.#refreshObjective();
     await this.say(WOODS.moonflowers[flower.id]);
@@ -498,8 +556,10 @@ export class WoodsScene extends WorldScene {
   }
 
   celebrateFragment() {
+    this.playAnim('success', 1.1);
+    this.cheerTheo('proud', 1);
     this.particles.burst(this.player.x, this.player.y - 40, 60, {
-      color: ['#ffe9b0', '#f6e7c8', '#d98a9a'],
+      color: [PALETTE.goldLight, PALETTE.lavenderLight, PALETTE.lavender],
       speed: 90, life: 1.8, size: 3, shape: 'star', gravity: -14
     });
   }
@@ -535,6 +595,12 @@ export class WoodsScene extends WorldScene {
     drawMoon(ctx, 1180, 70, 30, time);
     drawPersonalStar(ctx, 470, 96, time, 1.15);
 
+    // Warm pools under the lanterns and the doorway east.
+    drawLightPool(ctx, LANDMARKS.lanterns.x, LANDMARKS.lanterns.y + 6, 130, PALETTE.goldLight, 0.9);
+    if (this.game.save.hasFlag('woodsComplete')) {
+      drawLightPool(ctx, LANDMARKS.arch.x - 10, LANDMARKS.arch.y + 12, 120, PALETTE.goldLight, 0.85);
+    }
+
     // Moving highlights on the water.
     if (!this.riverPoints) return;
     ctx.save();
@@ -557,12 +623,13 @@ export class WoodsScene extends WorldScene {
 function drawMoonflower(ctx, x, y, time) {
   const pulse = 0.7 + Math.sin(time * 2 + x * 0.01) * 0.3;
   ctx.save();
-  const glow = ctx.createRadialGradient(x, y - 16, 0, x, y - 16, 40 * pulse);
-  glow.addColorStop(0, 'rgba(214,232,255,0.55)');
-  glow.addColorStop(1, 'rgba(214,232,255,0)');
+  const glow = ctx.createRadialGradient(x, y - 16, 0, x, y - 16, 44 * pulse);
+  glow.addColorStop(0, rgba(PALETTE.lavenderLight, 0.6));
+  glow.addColorStop(0.5, rgba(PALETTE.lavender, 0.25));
+  glow.addColorStop(1, rgba(PALETTE.lavender, 0));
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(x, y - 16, 40 * pulse, 0, Math.PI * 2);
+  ctx.arc(x, y - 16, 44 * pulse, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.strokeStyle = '#3f6b52';
@@ -572,14 +639,14 @@ function drawMoonflower(ctx, x, y, time) {
   ctx.quadraticCurveTo(x + 3, y - 10, x, y - 18);
   ctx.stroke();
 
-  ctx.fillStyle = '#eaf2ff';
+  ctx.fillStyle = '#f3eeff';
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2 + Math.sin(time * 0.6) * 0.1;
     ctx.beginPath();
     ctx.ellipse(x + Math.cos(a) * 5.5, y - 18 + Math.sin(a) * 5.5, 4.6, 3, a, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.fillStyle = '#ffeeb8';
+  ctx.fillStyle = PALETTE.lavender;
   ctx.beginPath();
   ctx.arc(x, y - 18, 3.2, 0, Math.PI * 2);
   ctx.fill();

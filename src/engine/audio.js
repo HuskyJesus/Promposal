@@ -37,6 +37,8 @@ export class AudioEngine {
     this.nextChordTime = 0;
     this.chordIndex = 0;
     this.ambienceNodes = [];
+    this.ducked = false;
+    this.lastStep = 0;
     /** Set by the game so audio cues can also be shown as text. */
     this.onCaption = () => {};
   }
@@ -93,11 +95,45 @@ export class AudioEngine {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
     const musicOn = this.settings.sound && this.settings.music;
+    // Music sits deliberately low; it should never compete with a line of
+    // dialogue being read on a phone speaker.
+    const musicLevel = musicOn ? (this.ducked ? 0.055 : 0.115) : 0;
     this.musicGain.gain.cancelScheduledValues(now);
-    this.musicGain.gain.linearRampToValueAtTime(musicOn ? 0.16 : 0, now + 0.4);
+    this.musicGain.gain.linearRampToValueAtTime(musicLevel, now + 0.4);
     this.ambienceGain.gain.cancelScheduledValues(now);
-    this.ambienceGain.gain.linearRampToValueAtTime(this.settings.sound ? 0.11 : 0, now + 0.4);
-    this.sfxGain.gain.value = this.settings.sound ? 0.6 : 0;
+    this.ambienceGain.gain.linearRampToValueAtTime(this.settings.sound ? (this.ducked ? 0.05 : 0.085) : 0, now + 0.4);
+    this.sfxGain.gain.value = this.settings.sound ? 0.55 : 0;
+  }
+
+  /** Pulls the music down while somebody is speaking. */
+  duck(on) {
+    if (this.ducked === on) return;
+    this.ducked = on;
+    this.applySettings();
+  }
+
+  /**
+   * Called when the tab is hidden or shown. Suspending stops the scheduler
+   * from queueing notes into a context that is not running, which is what
+   * causes a burst of overlapping sound on returning to a mobile browser.
+   */
+  setActive(active) {
+    if (!this.ctx) return;
+    if (active) {
+      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      if (!this.schedulerId && this.mood) this.#restartScheduler();
+    } else {
+      if (this.schedulerId) {
+        clearInterval(this.schedulerId);
+        this.schedulerId = null;
+      }
+      if (this.ctx.state === 'running') this.ctx.suspend().catch(() => {});
+    }
+  }
+
+  #restartScheduler() {
+    this.nextChordTime = this.ctx.currentTime + 0.2;
+    this.schedulerId = setInterval(() => this.#scheduleMusic(), 250);
   }
 
   /** Switches the musical bed and ambience to a chapter's mood. */
@@ -166,6 +202,32 @@ export class AudioEngine {
     this.chordIndex = 0;
     this.nextChordTime = this.ctx.currentTime + 0.1;
     this.schedulerId = setInterval(() => this.#scheduleMusic(), 250);
+  }
+
+  /** A very soft brush of noise under each footfall. */
+  footstep() {
+    if (!this.enabled) return;
+    const now = this.#now();
+    if (now - this.lastStep < 0.12) return;
+    this.lastStep = now;
+    const ctx = this.ctx;
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.09), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const fade = 1 - i / data.length;
+      data[i] = (Math.random() * 2 - 1) * fade * fade;
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 620 + Math.random() * 220;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.12;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+    source.start(now);
   }
 
   #scheduleMusic() {
@@ -346,12 +408,13 @@ export class AudioEngine {
     const t = this.#now();
     const run = [64, 69, 71, 76, 78, 83, 88];
     run.forEach((note, i) => {
-      this.#voice({ freq: midiToFreq(note), time: t + i * 0.09, duration: 0.7, type: 'triangle', peak: 0.2 });
+      this.#voice({ freq: midiToFreq(note), time: t + i * 0.09, duration: 0.7, type: 'triangle', peak: 0.16 });
     });
     const chordTime = t + run.length * 0.09;
+    // Peaks stay modest: six voices at full level would clip the master bus.
     [52, 64, 68, 71, 76, 83].forEach((note, i) => {
-      this.#voice({ freq: midiToFreq(note), time: chordTime + i * 0.03, duration: 3.4, type: 'sine', peak: 0.17 });
-      this.#voice({ freq: midiToFreq(note), time: chordTime + i * 0.03, duration: 3.2, type: 'triangle', peak: 0.06, detune: 7 });
+      this.#voice({ freq: midiToFreq(note), time: chordTime + i * 0.03, duration: 3.4, type: 'sine', peak: 0.1 });
+      this.#voice({ freq: midiToFreq(note), time: chordTime + i * 0.03, duration: 3.2, type: 'triangle', peak: 0.04, detune: 7 });
     });
     for (let i = 0; i < 12; i++) {
       const note = 88 + PENTATONIC[i % PENTATONIC.length];

@@ -4,8 +4,20 @@
  * helpers scenes use (painted background buffer + live foreground).
  */
 
-const MIN_VIEW_HEIGHT = 360;
-const MAX_VIEW_HEIGHT = 620;
+const MIN_VIEW_HEIGHT = 320;
+const MAX_VIEW_HEIGHT = 580;
+
+/**
+ * Retina phones gain nothing visible above 2x for artwork this soft, and the
+ * fill rate costs a lot. Weaker devices drop further still.
+ */
+function targetPixelRatio() {
+  const raw = window.devicePixelRatio || 1;
+  const cores = navigator.hardwareConcurrency || 4;
+  const memory = navigator.deviceMemory || 4;
+  const modest = cores <= 4 || memory <= 3;
+  return Math.min(raw, modest ? 1.5 : 2);
+}
 
 export class Renderer {
   constructor(canvas) {
@@ -14,30 +26,43 @@ export class Renderer {
     this.dpr = 1;
     this.width = 0;   // CSS pixels
     this.height = 0;  // CSS pixels
-    this.camera = { x: 0, y: 0, viewHeight: 360 };
+    this.camera = { x: 0, y: 0, viewHeight: 460, zoom: 1 };
+    /** Short zoom-in used to emphasise a discovery. */
+    this.emphasis = 0;
+    this.quality = 1;
     this.resize();
   }
 
+  /**
+   * Matches the drawing buffer to the element's real size. Called on resize,
+   * rotation and whenever the mobile browser's toolbars change the viewport.
+   * Camera state is untouched, so nothing jumps when the bars slide away.
+   */
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    const cssWidth = Math.max(1, Math.round(rect.width));
-    const cssHeight = Math.max(1, Math.round(rect.height));
-    // Cap the ratio: a 3x phone display gains nothing visible but costs a lot.
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const cssWidth = Math.max(1, Math.round(rect.width || window.innerWidth));
+    const cssHeight = Math.max(1, Math.round(rect.height || window.innerHeight));
+    this.dpr = targetPixelRatio();
+
+    const bufferWidth = Math.round(cssWidth * this.dpr);
+    const bufferHeight = Math.round(cssHeight * this.dpr);
     this.width = cssWidth;
     this.height = cssHeight;
-    this.canvas.width = Math.round(cssWidth * this.dpr);
-    this.canvas.height = Math.round(cssHeight * this.dpr);
+    // Assigning width/height clears the canvas, so only do it when it changed.
+    if (this.canvas.width !== bufferWidth || this.canvas.height !== bufferHeight) {
+      this.canvas.width = bufferWidth;
+      this.canvas.height = bufferHeight;
+    }
 
-    // Portrait phones get a taller slice of the world so the character and the
-    // scenery around her still both fit on screen.
+    // Portrait phones get a taller slice of the world so the heroine and the
+    // scenery around her both stay on screen.
     const aspect = cssWidth / cssHeight;
-    const target = aspect < 1 ? 600 - aspect * 60 : 520 - (aspect - 1) * 45;
+    const target = aspect < 1 ? 560 - aspect * 50 : 470 - (aspect - 1) * 40;
     this.camera.viewHeight = Math.max(MIN_VIEW_HEIGHT, Math.min(MAX_VIEW_HEIGHT, target));
   }
 
   get scale() {
-    return this.height / this.camera.viewHeight;
+    return (this.height / this.camera.viewHeight) * this.camera.zoom;
   }
 
   get viewWidth() {
@@ -45,7 +70,7 @@ export class Renderer {
   }
 
   get viewHeight() {
-    return this.camera.viewHeight;
+    return this.height / this.scale;
   }
 
   /** Clears the frame to a flat colour. */
@@ -60,12 +85,37 @@ export class Renderer {
   beginWorld() {
     const { ctx } = this;
     const s = this.scale * this.dpr;
-    ctx.setTransform(s, 0, 0, s, -this.camera.x * s + (this.width * this.dpr) / 2, -this.camera.y * s + (this.height * this.dpr) / 2);
+    ctx.setTransform(
+      s, 0, 0, s,
+      -this.camera.x * s + (this.width * this.dpr) / 2,
+      -this.camera.y * s + (this.height * this.dpr) / 2
+    );
   }
 
   /** Switch to screen coordinates measured in CSS pixels. */
   beginScreen() {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+  }
+
+  /** Visible world rectangle, used to skip drawing anything off screen. */
+  viewBounds(padding = 0) {
+    const halfW = this.viewWidth / 2 + padding;
+    const halfH = this.viewHeight / 2 + padding;
+    return {
+      left: this.camera.x - halfW,
+      right: this.camera.x + halfW,
+      top: this.camera.y - halfH,
+      bottom: this.camera.y + halfH
+    };
+  }
+
+  /** Converts a screen point (CSS pixels) into world coordinates. */
+  screenToWorld(screenX, screenY) {
+    const s = this.scale;
+    return {
+      x: this.camera.x + (screenX - this.width / 2) / s,
+      y: this.camera.y + (screenY - this.height / 2) / s
+    };
   }
 
   /** Keeps the camera inside the world, centring it when the world is small. */
@@ -83,7 +133,29 @@ export class Renderer {
   }
 
   snapCamera(x, y, world) {
+    this.camera.zoom = 1;
+    this.emphasis = 0;
     this.followCamera(x, y, world, 1);
+  }
+
+  /** A brief push-in on a discovery. Ignored when motion is reduced. */
+  emphasise(amount = 0.06) {
+    this.emphasis = Math.max(this.emphasis, amount);
+  }
+
+  updateCamera(dt, reducedMotion) {
+    if (reducedMotion) {
+      this.emphasis = 0;
+      this.camera.zoom = 1;
+      return;
+    }
+    if (this.emphasis > 0.001) {
+      this.emphasis = Math.max(0, this.emphasis - dt * 0.12);
+    } else {
+      this.emphasis = 0;
+    }
+    const target = 1 + this.emphasis;
+    this.camera.zoom += (target - this.camera.zoom) * Math.min(1, dt * 6);
   }
 }
 

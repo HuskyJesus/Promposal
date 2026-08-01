@@ -11,8 +11,9 @@ import { WorldScene } from '../engine/worldScene.js';
 import { createBuffer } from '../engine/renderer.js';
 import {
   paintNightSky, drawPersonalStar, drawMoon, drawArch, drawThreeStars, drawLantern,
-  drawFlowerCluster, makeSprite, makeRandom, rgba, starPath, mix
+  drawFlowerCluster, drawLightPool, paintMist, makeSprite, makeRandom, rgba, starPath, mix
 } from '../engine/art.js';
+import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
 import { drawWallPortrait } from '../engine/sprites.js';
 import { HALL } from '../data/dialogue.js';
 import { GOSSIP } from '../data/gossip.js';
@@ -21,6 +22,14 @@ import { CHAPTER_TITLES } from '../engine/game.js';
 
 const WORLD = { width: 1280, height: 780 };
 const WALL_Y = 240;
+const THEME = SCENE_THEMES.hall;
+
+/**
+ * Colour returns to the hall in visible stages rather than all at once:
+ * a little with each mural pair, half when the mural is whole, and the rest
+ * when the Storykeeper is satisfied.
+ */
+const COLOUR_AFTER_MURAL = 0.6;
 
 const SPOTS = {
   mural: { x: 620, y: 262 },
@@ -36,10 +45,13 @@ export class HallScene extends WorldScene {
     super(game);
     this.world = WORLD;
     this.skyColor = '#0c0b12';
-    this.vignetteStrength = 0.6;
-    this.player = { x: 420, y: 690, facing: 'up', moving: false, walkTime: 0 };
-    this.theo = { x: 380, y: 710, visible: true, mood: 'happy', facing: 'up' };
+    this.vignetteStrength = THEME.vignette;
+    this.atmosphere = PALETTE.silver;
+    this.atmosphereStrength = 0.04;
+    Object.assign(this.player, { x: 420, y: 690, facing: 'up', moving: false, walkTime: 0 });
+    Object.assign(this.theo, { x: 380, y: 710, visible: true, mood: 'happy', facing: 'up' });
     this.colorLevel = 0;
+    this.colorTarget = 0;
   }
 
   async enter(payload = {}) {
@@ -49,7 +61,9 @@ export class HallScene extends WorldScene {
     game.ui.setChapter(CHAPTER_TITLES.hall, '');
     game.ui.setFragments(game.save.progress.fragments.length);
 
-    this.colorLevel = game.save.hasFlag('muralComplete') ? 1 : 0;
+    this.colorTarget = game.save.hasFlag('triviaComplete') ? 1
+      : game.save.hasFlag('muralComplete') ? COLOUR_AFTER_MURAL : 0;
+    this.colorLevel = this.colorTarget;
 
     this.#buildSprites();
     this.monoBackground = this.#paintBackground(false);
@@ -125,13 +139,14 @@ export class HallScene extends WorldScene {
   /** The hall is painted twice: once drained of colour, once restored. */
   #paintBackground(colour) {
     const { width, height } = WORLD;
-    const accent = (hex, amount = 1) => (colour ? mix('#c9c9cf', hex, amount) : '#c9c9cf');
+    const tone = colour ? THEME.colour : THEME.mono;
+    const accent = (hex, amount = 1) => (colour ? mix(THEME.mono.flower, hex, amount) : THEME.mono.flower);
 
     return createBuffer(width, height, (ctx) => {
       // Back wall.
       const wall = ctx.createLinearGradient(0, 0, 0, WALL_Y);
-      wall.addColorStop(0, colour ? '#2b2536' : '#1e1e24');
-      wall.addColorStop(1, colour ? '#413a4e' : '#33333c');
+      wall.addColorStop(0, tone.wallTop);
+      wall.addColorStop(1, tone.wallBottom);
       ctx.fillStyle = wall;
       ctx.fillRect(0, 0, width, WALL_Y);
 
@@ -145,14 +160,14 @@ export class HallScene extends WorldScene {
       }
 
       // Tall windows at each end, showing the night outside.
-      for (const wx of [120, 1140]) {
+      for (const wx of [120, 1140]) {  // eslint-disable-line no-unused-vars
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(wx - 46, 30, 92, 180, 46);
         ctx.clip();
         paintNightSky(ctx, width, 240, { top: '#0b0a1a', bottom: '#221d38', starCount: 40, seed: wx });
         ctx.restore();
-        ctx.strokeStyle = '#8e94a4';
+        ctx.strokeStyle = tone.frame;
         ctx.lineWidth = 6;
         ctx.beginPath();
         ctx.roundRect(wx - 46, 30, 92, 180, 46);
@@ -179,11 +194,13 @@ export class HallScene extends WorldScene {
       // Two dancing silhouettes, one on each half, reaching toward the gap.
       drawSilhouette(ctx, mx - 96, 196, 1, '#e8eefb');
       drawSilhouette(ctx, mx + 96, 196, -1, '#1a1720');
-      ctx.strokeStyle = '#8e94a4';
+      ctx.strokeStyle = tone.frame;
       ctx.lineWidth = 6;
       ctx.beginPath();
       ctx.roundRect(mx - 174, 40, 348, 176, 10);
       ctx.stroke();
+
+      paintMist(ctx, width, height, THEME.mist, 55, 4);
 
       // Chessboard floor.
       // Counted in whole tiles, so the black-and-white pattern always
@@ -194,9 +211,7 @@ export class HallScene extends WorldScene {
       for (let row = 0; row < rows; row++) {
         for (let column = 0; column < columns; column++) {
           const dark = (row + column) % 2 === 0;
-          ctx.fillStyle = dark
-            ? (colour ? '#2a2533' : '#232329')
-            : (colour ? '#ddd6c8' : '#d4d4d8');
+          ctx.fillStyle = dark ? tone.tileDark : tone.tileLight;
           ctx.fillRect(column * tile, WALL_Y + row * tile, tile, tile);
           ctx.strokeStyle = 'rgba(0,0,0,0.14)';
           ctx.lineWidth = 1;
@@ -215,8 +230,8 @@ export class HallScene extends WorldScene {
       for (const side of [0, 1]) {
         const x = side ? width - 56 : 0;
         const wallGradient = ctx.createLinearGradient(x, 0, x + 56, 0);
-        const inner = colour ? '#3a3247' : '#2c2c34';
-        const outer = colour ? '#221d2e' : '#1a1a20';
+        const inner = colour ? '#3f3550' : '#2c2c34';
+        const outer = colour ? '#241e33' : '#1a1a20';
         wallGradient.addColorStop(0, side ? inner : outer);
         wallGradient.addColorStop(1, side ? outer : inner);
         ctx.fillStyle = wallGradient;
@@ -229,13 +244,13 @@ export class HallScene extends WorldScene {
       }
 
       // A long runner carpet down the middle of the hall.
-      ctx.fillStyle = colour ? '#5e2f3a' : '#3a3a42';
+      ctx.fillStyle = tone.runner;
       ctx.fillRect(380, WALL_Y, 500, height - WALL_Y);
-      ctx.strokeStyle = colour ? rgba('#e9b45f', 0.65) : rgba('#b9bcc6', 0.45);
+      ctx.strokeStyle = rgba(tone.runnerTrim, 0.6);
       ctx.lineWidth = 4;
       ctx.strokeRect(398, WALL_Y + 10, 464, height - WALL_Y - 26);
       // Woven diamonds along the runner.
-      ctx.strokeStyle = colour ? rgba('#e9b45f', 0.3) : rgba('#b9bcc6', 0.2);
+      ctx.strokeStyle = rgba(tone.runnerTrim, 0.28);
       ctx.lineWidth = 2;
       for (let y = WALL_Y + 60; y < height - 40; y += 110) {
         ctx.beginPath();
@@ -254,7 +269,7 @@ export class HallScene extends WorldScene {
         const x = left ? 40 + random() * 280 : 940 + random() * 300;
         const y = WALL_Y + 30 + random() * (height - WALL_Y - 70);
         drawFlowerCluster(ctx, x, y, 0.8 + random() * 0.5,
-          [accent('#d98a9a'), accent('#e9b45f'), accent('#c8b8e8')], 200 + i, 3);
+          [accent(PALETTE.lavender), accent(PALETTE.gold), accent(PALETTE.lavenderLight)], 200 + i, 3);
       }
     });
   }
@@ -271,11 +286,17 @@ export class HallScene extends WorldScene {
 
     this.addEntity({
       y: SPOTS.portraitLeft.y,
-      draw: (ctx, time) => drawWallPortrait(ctx, { x: SPOTS.portraitLeft.x, y: SPOTS.portraitLeft.y, time, scale: 1.5, tone: 'dark', talking: this.nearest?.id === 'portraitLeft' })
+      draw: (ctx, time) => drawWallPortrait(ctx, {
+        x: SPOTS.portraitLeft.x, y: SPOTS.portraitLeft.y, time, scale: 1.5,
+        tone: 'dark', talking: this.nearest?.id === 'portraitLeft', colour: this.colorLevel
+      })
     });
     this.addEntity({
       y: SPOTS.portraitRight.y,
-      draw: (ctx, time) => drawWallPortrait(ctx, { x: SPOTS.portraitRight.x, y: SPOTS.portraitRight.y, time, scale: 1.5, tone: 'light', talking: this.nearest?.id === 'portraitRight' })
+      draw: (ctx, time) => drawWallPortrait(ctx, {
+        x: SPOTS.portraitRight.x, y: SPOTS.portraitRight.y, time, scale: 1.5,
+        tone: 'light', talking: this.nearest?.id === 'portraitRight', colour: this.colorLevel
+      })
     });
 
     this.addEntity({
@@ -381,14 +402,21 @@ export class HallScene extends WorldScene {
       return;
     }
     await this.say(HALL.muralIntro);
-    const solved = await runMuralPuzzle(this.game);
+    const solved = await runMuralPuzzle(this.game, {
+      onProgress: (fraction) => {
+        this.colorTarget = Math.max(this.colorTarget, fraction * COLOUR_AFTER_MURAL);
+        this.#burstColour(0.5);
+      }
+    });
     if (!solved) {
       await this.say([{ who: 'theo', text: 'No rush. The wall has been like this for two centuries; it can hold on a little longer.' }]);
       return;
     }
     this.game.save.setFlag('muralComplete');
     this.game.audio.rumble();
-    this.#burstColour();
+    this.colorTarget = COLOUR_AFTER_MURAL;
+    this.#burstColour(1);
+    if (!this.game.settings.reducedMotion) this.game.renderer.emphasise(0.07);
     await this.say(HALL.muralSolved);
     this.#refreshObjective();
     await this.#checkComplete();
@@ -412,6 +440,9 @@ export class HallScene extends WorldScene {
       return;
     }
     save.setFlag('triviaComplete');
+    // The last of the colour arrives with the Storykeeper's approval.
+    this.colorTarget = 1;
+    this.#burstColour(1);
     await this.say(HALL.triviaSolved);
     if (result.flawless) await this.say(HALL.triviaFlawless);
     this.#refreshObjective();
@@ -434,9 +465,11 @@ export class HallScene extends WorldScene {
     await this.game.advanceTo('garden');
   }
 
-  #burstColour() {
-    this.particles.burst(SPOTS.mural.x, SPOTS.mural.y + 20, 70, {
-      color: ['#d98a9a', '#e9b45f', '#6f9ee8', '#f6e7c8'],
+  /** Lavender arrives first, then the warmer colours behind it. */
+  #burstColour(strength = 1) {
+    const count = Math.round(34 * strength) + 16;
+    this.particles.burst(SPOTS.mural.x, SPOTS.mural.y + 20, count, {
+      color: [PALETTE.lavender, PALETTE.lavenderLight, PALETTE.gold, PALETTE.theoBlue],
       speed: 110, life: 2.2, size: 3.4, shape: 'petal', gravity: 10, drag: 0.96
     });
   }
@@ -453,8 +486,10 @@ export class HallScene extends WorldScene {
   }
 
   celebrateFragment() {
+    this.playAnim('success', 1.1);
+    this.cheerTheo('proud', 1);
     this.particles.burst(SPOTS.mural.x, SPOTS.mural.y + 30, 60, {
-      color: ['#ffe9b0', '#dde5f2', '#d98a9a'],
+      color: [PALETTE.goldLight, PALETTE.silver, PALETTE.lavender],
       speed: 90, life: 2, size: 3, shape: 'star', gravity: -10
     });
   }
@@ -471,11 +506,13 @@ export class HallScene extends WorldScene {
       theoTarget.x = this.theo.x;
       theoTarget.y = this.theo.y;
     }
-    // Colour seeps back once the mural is whole.
-    const target = this.game.save.hasFlag('muralComplete') ? 1 : 0;
-    if (this.colorLevel !== target) {
-      const speed = this.game.settings.reducedMotion ? 4 : 0.55;
-      this.colorLevel = Math.min(1, this.colorLevel + dt * speed);
+    // Colour seeps back toward whichever stage has been reached.
+    if (Math.abs(this.colorLevel - this.colorTarget) > 0.002) {
+      const speed = this.game.settings.reducedMotion ? 4 : 0.5;
+      const direction = Math.sign(this.colorTarget - this.colorLevel);
+      this.colorLevel = direction > 0
+        ? Math.min(this.colorTarget, this.colorLevel + dt * speed)
+        : Math.max(this.colorTarget, this.colorLevel - dt * speed);
     }
   }
 
@@ -491,6 +528,14 @@ export class HallScene extends WorldScene {
   }
 
   drawBehind(ctx, time) {
+    // Light pooling beneath the chandeliers, warming as the room recovers.
+    const warmth = this.colorLevel;
+    for (const cx of [500, 740]) {
+      drawLightPool(ctx, cx, WALL_Y + 96, 120, warmth > 0.4 ? PALETTE.goldLight : PALETTE.silver, 0.5);
+    }
+    drawLightPool(ctx, SPOTS.storykeeper.x, SPOTS.storykeeper.y + 10, 100,
+      warmth > 0.7 ? PALETTE.lavenderLight : PALETTE.silver, 0.45);
+
     // The night beyond the eastern window, personal star included.
     ctx.save();
     ctx.beginPath();

@@ -22,6 +22,9 @@ export class Input {
     this.confirmQueued = false;
     this.cancelQueued = false;
     this.enabled = true;
+    /** Called with client coordinates when the world itself is tapped. */
+    this.onStageTap = null;
+    this.tapStart = null;
 
     this.stickZone = stickZone;
     this.stickBase = stickBase;
@@ -31,6 +34,7 @@ export class Input {
     this.#bindKeyboard();
     this.#bindStick();
     this.#bindInteract();
+    this.#bindStageTap();
     this.#blockBrowserGestures();
   }
 
@@ -83,7 +87,9 @@ export class Input {
     zone.addEventListener('pointerdown', (event) => {
       if (!this.enabled || this.stickId !== null) return;
       this.stickId = event.pointerId;
-      zone.setPointerCapture(event.pointerId);
+      // Capture can be refused (a synthetic event, a pointer the browser has
+      // already taken back); the stick must keep working either way.
+      try { zone.setPointerCapture(event.pointerId); } catch { /* not capturable */ }
       this.stickOrigin = { x: event.clientX, y: event.clientY };
       place(event.clientX, event.clientY);
       this.stickBase.dataset.active = 'true';
@@ -119,6 +125,47 @@ export class Input {
     };
     zone.addEventListener('pointerup', end);
     zone.addEventListener('pointercancel', end);
+    // A finger dragged off the element, or capture stolen by the browser,
+    // must never leave her walking forever.
+    zone.addEventListener('lostpointercapture', end);
+    zone.addEventListener('pointerleave', (event) => {
+      if (event.pointerType === 'mouse') end(event);
+    });
+  }
+
+  /**
+   * A short tap on the world (rather than a drag on the stick) is offered to
+   * the scene, so tapping the thing in front of her also works. The action
+   * button remains the reliable path — this never replaces it.
+   */
+  #bindStageTap() {
+    const surface = document.getElementById('app');
+    if (!surface) return;
+
+    surface.addEventListener('pointerdown', (event) => {
+      if (this.#onInterface(event.target)) {
+        this.tapStart = null;
+        return;
+      }
+      this.tapStart = { x: event.clientX, y: event.clientY, at: performance.now(), id: event.pointerId };
+    });
+
+    surface.addEventListener('pointerup', (event) => {
+      const start = this.tapStart;
+      this.tapStart = null;
+      if (!start || start.id !== event.pointerId || !this.enabled) return;
+      if (this.#onInterface(event.target)) return;
+      const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+      const elapsed = performance.now() - start.at;
+      if (moved < 14 && elapsed < 350) this.onStageTap?.(event.clientX, event.clientY);
+    });
+
+    surface.addEventListener('pointercancel', () => { this.tapStart = null; });
+  }
+
+  #onInterface(target) {
+    return target instanceof HTMLElement
+      && Boolean(target.closest('button, .overlay, .dialogue, .rotate-hint, .hud'));
   }
 
   #bindInteract() {

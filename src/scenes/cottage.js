@@ -11,8 +11,10 @@ import { createBuffer } from '../engine/renderer.js';
 import {
   paintGround, paintNightSky, paintStonePath, drawTree, drawCottage, drawFlowerCluster,
   drawMushroom, drawFern, drawLantern, drawLampPost, drawMoon, drawPersonalStar,
-  drawArch, drawThreeStars, drawVine, makeRandom, makeSprite, rgba, starPath
+  drawArch, drawThreeStars, drawVine, paintMist, drawLightPool,
+  makeRandom, makeSprite, rgba, starPath
 } from '../engine/art.js';
+import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
 import { drawGuardian } from '../engine/sprites.js';
 import { COTTAGE } from '../data/dialogue.js';
 import { runGuardianTrial } from '../puzzles/panels.js';
@@ -34,16 +36,19 @@ const SPOTS = {
   exit: { x: 1180, y: 470 }
 };
 
-const TREE_PALETTE = { bark: '#3c2c2a', leaf: '#37765a', leafDark: '#245240', rim: '#ffd9a0' };
+const THEME = SCENE_THEMES.cottage;
+const TREE_PALETTE = THEME.tree;
 
 export class CottageScene extends WorldScene {
   constructor(game) {
     super(game);
     this.world = WORLD;
-    this.skyColor = '#131126';
-    this.vignetteStrength = 0.5;
-    this.player = { x: 620, y: 790, facing: 'up', moving: false, walkTime: 0 };
-    this.theo = { x: 580, y: 810, visible: true, mood: 'happy', facing: 'up' };
+    this.skyColor = THEME.skyTop;
+    this.vignetteStrength = THEME.vignette;
+    this.atmosphere = PALETTE.amber;
+    this.atmosphereStrength = 0.05;
+    Object.assign(this.player, { x: 620, y: 790, facing: 'up', moving: false, walkTime: 0 });
+    Object.assign(this.theo, { x: 580, y: 810, visible: true, mood: 'happy', facing: 'up' });
     this.guardiansMet = new Set();
   }
 
@@ -64,6 +69,20 @@ export class CottageScene extends WorldScene {
     this.#buildScenery();
     this.#buildInteractables();
     this.#refreshObjective();
+
+    // Warm light spills from the windows, the lamps and the doorway.
+    this.lightPools = [
+      { x: SPOTS.cottage.x - 56, y: SPOTS.cottage.y + 40, r: 110 },
+      { x: SPOTS.cottage.x + 56, y: SPOTS.cottage.y + 40, r: 110 },
+      { x: 200, y: 566, r: 90 }, { x: 1040, y: 566, r: 90 }
+    ];
+    this.seedTufts({
+      count: 110,
+      bounds: { x: 20, y: SHORE_Y + 10, width: WORLD.width - 40, height: WORLD.height - SHORE_Y - 30 },
+      colors: ['#3f7d5c', '#4b8f68'],
+      blooms: THEME.flowers,
+      seed: 2211
+    });
 
     this.drifts = [];
     this.addDrift({
@@ -249,10 +268,10 @@ export class CottageScene extends WorldScene {
   #paintBackground() {
     const { width, height } = WORLD;
     return createBuffer(width, height, (ctx) => {
-      paintNightSky(ctx, width, SHORE_Y, { top: '#0e0c1e', bottom: '#2a2444', starCount: 70, seed: 23 });
+      paintNightSky(ctx, width, SHORE_Y, { top: THEME.skyTop, bottom: THEME.skyBottom, starCount: 70, seed: 23 });
 
       const random = makeRandom(515);
-      ctx.fillStyle = '#161329';
+      ctx.fillStyle = THEME.horizon;
       for (let i = 0; i < 34; i++) {
         const x = random() * width;
         const h = 44 + random() * 60;
@@ -264,7 +283,7 @@ export class CottageScene extends WorldScene {
       }
 
       const lawn = createBuffer(width, height - 170, (lctx, w, h) => {
-        paintGround(lctx, w, h, { base: '#28483a', patch: '#3d7a55', seed: 61, patchCount: 260 });
+        paintGround(lctx, w, h, { base: THEME.ground, patch: THEME.groundPatch, seed: 61, patchCount: 260 });
       });
       ctx.drawImage(lawn, 0, 170);
 
@@ -296,7 +315,7 @@ export class CottageScene extends WorldScene {
         const x = detail() * width;
         const y = SHORE_Y + detail() * (height - SHORE_Y - 20);
         const roll = detail();
-        if (roll < 0.4) drawFlowerCluster(ctx, x, y, 0.7 + detail() * 0.6, ['#e9b45f', '#d98a9a', '#f0e0bd'], 700 + i, 4);
+        if (roll < 0.4) drawFlowerCluster(ctx, x, y, 0.7 + detail() * 0.6, THEME.flowers, 700 + i, 4);
         else if (roll < 0.7) drawFern(ctx, x, y, 0.6 + detail() * 0.6, '#356b4c', 800 + i);
         else if (roll < 0.85) drawMushroom(ctx, x, y, 0.6 + detail() * 0.5, { cap: '#d4a05a', stem: '#efe3c8' }, 900 + i);
       }
@@ -306,6 +325,8 @@ export class CottageScene extends WorldScene {
         { stem: '#3d6b4f', leaf: '#4f8f63', leafDark: '#356b4c' }, 31);
       drawVine(ctx, [{ x: 1110, y: 520 }, { x: 1104, y: 478 }, { x: 1114, y: 438 }], 1.2,
         { stem: '#3d6b4f', leaf: '#4f8f63', leafDark: '#356b4c' }, 33);
+
+      paintMist(ctx, width, height, THEME.mist, 29, 5);
     });
   }
 
@@ -504,8 +525,11 @@ export class CottageScene extends WorldScene {
   }
 
   celebrateFragment() {
+    this.playAnim('success', 1.1);
+    this.cheerTheo('proud', 1);
+    if (!this.game.settings.reducedMotion) this.game.renderer.emphasise(0.06);
     this.particles.burst(SPOTS.cottage.x, SPOTS.cottage.y - 130, 54, {
-      color: ['#ffe9b0', '#ffd48a', '#f6e7c8'],
+      color: [PALETTE.goldLight, '#ffd48a', PALETTE.lavenderLight],
       speed: 80, life: 1.7, size: 3, shape: 'star', gravity: -12
     });
   }
@@ -531,5 +555,8 @@ export class CottageScene extends WorldScene {
   drawBehind(ctx, time) {
     drawMoon(ctx, 200, 66, 26, time);
     drawPersonalStar(ctx, 940, 84, time, 1.1);
+    // The hearth inside throws a warm, flickering pool across the doorstep.
+    const flicker = 0.85 + Math.sin(time * 3.1) * 0.1 + Math.sin(time * 7.3) * 0.05;
+    drawLightPool(ctx, SPOTS.cottage.x, SPOTS.cottage.y + 34, 150, THEME.hearth, flicker);
   }
 }

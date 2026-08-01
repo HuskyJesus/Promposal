@@ -3,7 +3,7 @@
  * and opens the title screen.
  */
 
-import { config, applyTheme } from './config.js';
+import { config } from './config.js';
 import { Game } from './engine/game.js';
 import { TitleScene } from './scenes/title.js';
 import { WoodsScene } from './scenes/woods.js';
@@ -11,7 +11,6 @@ import { CottageScene } from './scenes/cottage.js';
 import { HallScene } from './scenes/hall.js';
 import { GardenScene } from './scenes/garden.js';
 
-applyTheme();
 document.title = config.gameTitle;
 
 const game = new Game();

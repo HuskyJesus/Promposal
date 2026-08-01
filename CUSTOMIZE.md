@@ -90,6 +90,9 @@ meant to arrive at the end, not in a browser tab or a link preview.
 
 ## Going further (optional)
 
+* **The full colour system** — `src/engine/theme.js`. `config.js` sets the
+  handful of colours the interface uses; this file turns them into the
+  complete palette for characters, scenery and dialogue speakers.
 * **Dialogue and jokes** — `src/data/dialogue.js`
 * **Optional gossip conversations** — `src/data/gossip.js`
 * **Puzzle content** — `src/puzzles/guardianTrial.js`, `muralPairs.js`,
