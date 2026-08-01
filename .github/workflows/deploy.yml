@@ -36,7 +36,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # enablement turns Pages on the first time this runs, so the site does
+      # not need to be switched on by hand in the repository settings.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       # The game is plain HTML, CSS and JavaScript modules — the repository
       # root is already the finished site, so there is nothing to build.
       - uses: actions/upload-pages-artifact@v3
