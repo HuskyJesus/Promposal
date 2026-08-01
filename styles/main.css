@@ -586,6 +586,17 @@ button {
   color: color-mix(in srgb, var(--c-parchment) 82%, transparent);
 }
 .title-panel .panel-actions { max-width: 330px; margin-inline: auto; }
+/* The title screen has no parchment behind it, so the quiet buttons need
+   their own light text and a backing plate to stay readable on the sky. */
+.title-panel .menu-button.quiet {
+  color: var(--c-parchment);
+  background: rgba(20, 16, 38, 0.62);
+  border-color: color-mix(in srgb, var(--c-parchment) 42%, transparent);
+  backdrop-filter: blur(4px);
+}
+.title-panel .menu-button.quiet:hover { background: rgba(44, 34, 72, 0.8); }
+.title-panel .menu-button.quiet .state { color: var(--c-gold-light); }
+.title-panel .menu-button.quiet.danger { color: #ffb4ba; border-color: #a8474f; }
 .title-footer {
   margin-top: 16px;
   font-size: 0.76rem;
