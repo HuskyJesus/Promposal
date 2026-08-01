@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "npx --yes http-server . -p 4173 -c-1",
-    "test": "node --test \"tests/**/*.test.mjs\"",
+    "test": "node --test tests/puzzles.test.mjs tests/state.test.mjs",
     "test:e2e": "node tests/e2e/playthrough.mjs"
   },
   "keywords": [
