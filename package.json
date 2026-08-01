@@ -1,0 +1,22 @@
+{
+  "name": "the-unwritten-page",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A cozy hand-drawn fairytale adventure, built with vanilla HTML, CSS and JavaScript.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes http-server . -p 4173 -c-1",
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "test:e2e": "node tests/e2e/playthrough.mjs"
+  },
+  "keywords": [
+    "game",
+    "canvas",
+    "fairytale",
+    "vanilla-js"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

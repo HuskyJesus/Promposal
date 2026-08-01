@@ -1,1 +1,126 @@
-# Promposal
+# The Unwritten Page
+
+A cozy, hand-drawn fairytale adventure about finishing a story that lost its
+final page. Roughly 10–15 minutes long, built for phones first and desktops
+second.
+
+**Play it:** https://huskyjesus.github.io/Promposal/
+
+---
+
+## What it is
+
+A small top-down adventure game. You wander an enchanted forest, meet a very
+self-important blue bear called Theo, gather three lost fragments of a story,
+and finish writing its last page.
+
+It is built from nothing but HTML, CSS and vanilla JavaScript modules. There is
+**no build step, no framework, no backend, and not a single image file** — every
+tree, character, lantern, mushroom and star is drawn at runtime with the Canvas
+2D API or inline SVG, and all of the music and sound is synthesised on the fly
+with the Web Audio API.
+
+## Chapters
+
+| Chapter | Place | What happens |
+| --- | --- | --- |
+| One | The Whispering Woods | Explore, meet Theo, gather three hidden moonflowers, and listen to woodland gossip. |
+| Two | The Enchanted Cottage | Three guardians each tell you what beats them; win three rounds of Stone, Scroll and Shears. |
+| Three | The Monochrome Hall | Join the halves of a divided mural to bring colour back, then answer the Storykeeper's three questions. |
+| Finale | The Garden Beyond the Stars | Light three lanterns, watch the light make a journey, and read the last page. |
+
+## Running it locally
+
+The game is a static site; any web server will do.
+
+```bash
+npm start          # serves it at http://localhost:4173
+```
+
+Or with Python:
+
+```bash
+python3 -m http.server 4173
+```
+
+Opening `index.html` straight from the file system will **not** work, because
+browsers block ES modules loaded over `file://`. Use a server.
+
+## Tests
+
+```bash
+npm test           # puzzle rules and saved-progress logic (Node's test runner)
+npm run test:e2e   # full playthrough in a real browser (needs Playwright)
+```
+
+The unit tests check the things that matter for a game somebody only plays
+once: that every puzzle is solvable, that every hint matches the real answer,
+that a wrong answer never breaks a puzzle, and that saving, continuing,
+restarting a chapter and erasing progress all do what they claim.
+
+The end-to-end suite drives a headless Chromium through the entire story from
+the title screen to the final page, in both landscape and portrait.
+
+## Controls
+
+* **Move** — arrow keys or `W A S D`; on a phone, hold and drag anywhere on the
+  left half of the screen.
+* **Interact** — `Space`, `Enter`, `E`, or the round button at the bottom right.
+* **Menu / pause** — `Escape` or the button at the top left.
+* **Hint** — the lamp button at the top right. Ask more than once and Theo gets
+  progressively less mysterious.
+
+## Accessibility
+
+* Every menu, puzzle and dialogue choice is a real focusable button, reachable
+  by keyboard and labelled for screen readers.
+* No puzzle needs dragging, precise timing or fast reflexes.
+* Nothing is communicated by colour alone — fragments, matched panels and
+  puzzle feedback all carry a symbol or a label as well.
+* A reduced-motion option (which also follows your system setting) removes the
+  page-turn animation, the typewriter effect and the sweeping camera moves.
+* Every meaningful sound is captioned on screen, and the game is fully playable
+  with sound switched off.
+* Text speed can be set to instant.
+
+## Project layout
+
+```
+index.html            the page itself
+404.html              a themed fallback page
+styles/main.css       all interface styling
+assets/favicon.svg    the only static asset in the project
+src/
+  config.js           ← the one file to edit to personalise everything
+  main.js             start-up: registers the scenes and opens the title screen
+  engine/
+    game.js           the loop, the scene stack, the pause menu
+    worldScene.js     shared behaviour for the explorable chapters
+    renderer.js       canvas, device pixel ratio, camera
+    art.js            procedural scenery: trees, paths, lanterns, skies
+    sprites.js        characters and dialogue portraits
+    particles.js      fireflies, petals, sparks
+    audio.js          procedural music, ambience and sound effects
+    ui.js             dialogue box, panels, HUD, transitions
+    input.js          keyboard, thumb stick, interaction button
+    icons.js          inline SVG icons
+    save.js           localStorage progress and settings
+  scenes/             title, woods, cottage, hall, garden
+  puzzles/            puzzle rules (pure logic) and their panels
+  data/               all dialogue and optional gossip
+tests/                unit tests and the end-to-end playthrough
+```
+
+## Deployment
+
+Pushes to `main` trigger `.github/workflows/deploy.yml`, which runs the tests
+and then publishes the repository root to GitHub Pages. Every path in the
+project is relative, so the site works from the `/Promposal/` subdirectory
+without any configuration.
+
+To enable it the first time: **Settings → Pages → Build and deployment →
+Source → GitHub Actions**.
+
+## Personalising it
+
+See [CUSTOMIZE.md](CUSTOMIZE.md). Short version: edit `src/config.js`.

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>The Unwritten Page</title>
+<meta name="description" content="A cozy hand-drawn fairytale adventure. Wander the Whispering Woods, gather three lost story fragments, and finish a tale that was left unfinished.">
+<meta name="theme-color" content="#161228">
+<meta name="color-scheme" content="dark light">
+<meta property="og:title" content="The Unwritten Page">
+<meta property="og:description" content="A cozy hand-drawn fairytale adventure about finishing a story that lost its final page.">
+<meta property="og:type" content="website">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./assets/favicon.svg">
+<link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="stage" aria-label="Game world" role="img"></canvas>
+
+  <!-- Heads-up display -->
+  <header id="hud" class="hud" hidden>
+    <button id="menu-button" class="icon-button" type="button" aria-label="Open menu (Escape)">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="hud-centre">
+      <p id="chapter-label" class="chapter-label">The Whispering Woods</p>
+      <p id="objective-label" class="objective-label"></p>
+    </div>
+    <div class="hud-right">
+      <div id="fragment-track" class="fragment-track" role="group" aria-label="Story fragments recovered"></div>
+      <button id="hint-button" class="icon-button" type="button" aria-label="Ask Theo for a hint">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.1 1 1.8l.1.9h5l.1-.9c.1-.7.4-1.3 1-1.8A6 6 0 0 0 12 3Z"/><path d="M10 20h4"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Touch movement + interaction -->
+  <div id="touch-controls" class="touch-controls" hidden>
+    <div id="stick-zone" class="stick-zone" aria-hidden="true">
+      <div id="stick-base" class="stick-base"><div id="stick-knob" class="stick-knob"></div></div>
+    </div>
+    <button id="interact-button" class="action-button" type="button" aria-label="Interact">
+      <span id="interact-glyph" class="action-glyph" aria-hidden="true">✦</span>
+      <span id="interact-label" class="action-label">Look</span>
+    </button>
+  </div>
+
+  <!-- Dialogue -->
+  <div id="dialogue" class="dialogue" hidden role="dialog" aria-live="polite" aria-label="Conversation">
+    <div class="dialogue-portrait" id="dialogue-portrait" aria-hidden="true"></div>
+    <div class="dialogue-body">
+      <p class="dialogue-name" id="dialogue-name"></p>
+      <p class="dialogue-text" id="dialogue-text"></p>
+      <div class="dialogue-choices" id="dialogue-choices" hidden></div>
+      <button class="dialogue-advance" id="dialogue-advance" type="button">
+        <span class="dialogue-advance-text">Continue</span>
+        <span class="dialogue-caret" aria-hidden="true">▾</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Panels: menus, puzzles, storybook pages -->
+  <div id="overlay" class="overlay" hidden></div>
+
+  <!-- Storybook page-turn transition -->
+  <div id="page-turn" class="page-turn" aria-hidden="true"><div class="page-turn-leaf"></div></div>
+
+  <!-- Audio captions & announcements for screen readers -->
+  <p id="caption" class="caption" role="status" aria-live="polite"></p>
+
+  <div id="rotate-hint" class="rotate-hint" hidden>
+    <span aria-hidden="true">⟳</span>
+    <p>Turning your phone sideways gives the story more room — but portrait works too.</p>
+    <button id="rotate-dismiss" class="text-button" type="button">Got it</button>
+  </div>
+</div>
+
+<noscript>
+  <div class="noscript">
+    <h1>The Unwritten Page</h1>
+    <p>This story needs JavaScript to be told. Please enable it and reload the page.</p>
+  </div>
+</noscript>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
