@@ -118,8 +118,16 @@ and then publishes the repository root to GitHub Pages. Every path in the
 project is relative, so the site works from the `/Promposal/` subdirectory
 without any configuration.
 
-To enable it the first time: **Settings → Pages → Build and deployment →
-Source → GitHub Actions**.
+**One-time setup.** GitHub will not let a workflow create a Pages site for a
+repository that has never had one, so the very first deploy needs a single
+manual step:
+
+1. Go to **Settings → Pages** in this repository.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Open the **Actions** tab, pick the most recent *Deploy to GitHub Pages*
+   run, and choose **Re-run all jobs**.
+
+Every push to `main` deploys on its own after that.
 
 ## Personalising it
 
