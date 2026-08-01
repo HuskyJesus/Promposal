@@ -921,7 +921,11 @@ button {
   .mural-board { grid-template-columns: 1fr; }
   .mural-divider { display: none; }
   .mural-column { gap: 8px; }
-  .fragment-track { padding: 6px 8px; }
+  .fragment-track { padding: 6px 8px; gap: 4px; }
+  .fragment-pip { width: 15px; height: 15px; }
+  .chapter-label { font-size: 1rem; }
+  .objective-label { font-size: 0.7rem; }
+  .hud { gap: 6px; }
 }
 
 /* Pointer devices don't need the on-screen stick. */

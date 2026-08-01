@@ -493,7 +493,7 @@ export class WoodsScene extends WorldScene {
     if (this.game.save.hasFlag('woodsComplete')) {
       this.game.ui.setObjective('Follow the path east to the cottage');
     } else {
-      this.game.ui.setObjective(`Moonflowers gathered: ${found} of 3`);
+      this.game.ui.setObjective(`Moonflowers: ${found} of 3`);
     }
   }
 

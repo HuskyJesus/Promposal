@@ -497,7 +497,7 @@ export class CottageScene extends WorldScene {
     if (this.game.save.hasFlag('cottageComplete')) {
       this.game.ui.setObjective('Take the eastern path to the castle');
     } else if (this.guardiansMet.size < 3) {
-      this.game.ui.setObjective(`Guardians heard: ${this.guardiansMet.size} of 3`);
+      this.game.ui.setObjective(`Guardians heard: ${this.guardiansMet.size}/3`);
     } else {
       this.game.ui.setObjective('Begin the trial at the cottage door');
     }
