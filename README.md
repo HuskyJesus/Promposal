@@ -118,21 +118,18 @@ tests/                unit tests and the end-to-end playthrough
 
 ## Deployment
 
-Pushes to `main` trigger `.github/workflows/deploy.yml`, which runs the tests
-and then publishes the repository root to GitHub Pages. Every path in the
-project is relative, so the site works from the `/Promposal/` subdirectory
-without any configuration.
+GitHub Pages serves this repository directly from the `main` branch, so every
+push is live within a minute or two. Every path in the project is relative,
+so the site works from the `/Promposal/` subdirectory with no configuration,
+and a `.nojekyll` file keeps Pages from filtering anything.
 
-**One-time setup.** GitHub will not let a workflow create a Pages site for a
-repository that has never had one, so the very first deploy needs a single
-manual step:
+`.github/workflows/tests.yml` runs the puzzle and saved-progress tests on
+every push and pull request.
 
-1. Go to **Settings → Pages** in this repository.
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-3. Open the **Actions** tab, pick the most recent *Deploy to GitHub Pages*
-   run, and choose **Re-run all jobs**.
-
-Every push to `main` deploys on its own after that.
+If you would rather publish through Actions than from the branch, set
+**Settings → Pages → Source** to **GitHub Actions** and add a job using
+`actions/configure-pages`, `actions/upload-pages-artifact` (with `path: .`)
+and `actions/deploy-pages`. Nothing in the project needs to change.
 
 ## Personalising it
 
