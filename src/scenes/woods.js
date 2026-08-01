@@ -8,11 +8,12 @@
 import { WorldScene } from '../engine/worldScene.js';
 import { createBuffer } from '../engine/renderer.js';
 import {
-  paintGround, paintNightSky, paintStonePath, drawTree, drawMushroom, drawFlowerCluster,
+  paintGround, paintNightSky, paintStonePath, drawMushroom, drawFlowerCluster,
   drawFern, drawLantern, drawMoon, drawPersonalStar, drawArch, drawThreeStars,
   paintMist, drawLightPool, makeRandom, makeSprite, rgba, mix, starPath
 } from '../engine/art.js';
 import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
+import { buildTreeSprites, scatterWoodland } from '../engine/foliage.js';
 import { drawFrog, drawBird, drawChattyFlowers } from '../engine/sprites.js';
 import { WOODS } from '../data/dialogue.js';
 import { GOSSIP } from '../data/gossip.js';
@@ -70,10 +71,12 @@ export class WoodsScene extends WorldScene {
     this.#buildInteractables();
     this.#refreshObjective();
 
+    // Small patches of moonlight falling through gaps in the canopy.
     this.lightPools = [
-      { x: 430, y: 520, r: 120 }, { x: 900, y: 430, r: 150 },
-      { x: 1180, y: 760, r: 130 }, { x: 640, y: 880, r: 110 },
-      { x: 240, y: 640, r: 100 }
+      { x: 430, y: 520, r: 62 }, { x: 900, y: 440, r: 74 },
+      { x: 1160, y: 742, r: 58 }, { x: 660, y: 880, r: 54 },
+      { x: 250, y: 646, r: 48 }, { x: 1300, y: 470, r: 56 },
+      { x: 560, y: 700, r: 44 }
     ];
     this.seedTufts({
       count: 150,
@@ -153,18 +156,7 @@ export class WoodsScene extends WorldScene {
   /* ------------------------------------------------------------- scenery */
 
   #buildSprites() {
-    const random = makeRandom(4242);
-    this.treeSprites = [];
-    for (let i = 0; i < 5; i++) {
-      const scale = 1.05 + random() * 0.55;
-      this.treeSprites.push(makeSprite({
-        width: 150 * scale,
-        height: 150 * scale,
-        anchorX: 75 * scale,
-        anchorY: 136 * scale,
-        paint: (ctx) => drawTree(ctx, 0, 0, scale, TREE, 900 + i)
-      }));
-    }
+    this.treeSprites = buildTreeSprites(TREE, 4242);
 
     this.stoneSprite = makeSprite({
       width: 200, height: 150, anchorX: 100, anchorY: 120,
@@ -269,6 +261,12 @@ export class WoodsScene extends WorldScene {
         paintGround(fctx, w, h, { base: THEME.ground, patch: THEME.groundPatch, seed: 31, patchCount: 300 });
       });
       ctx.drawImage(floor, 0, 190);
+      // Soften the seam where the painted floor meets the distant treeline.
+      const seam = ctx.createLinearGradient(0, 178, 0, 250);
+      seam.addColorStop(0, rgba(THEME.horizon, 0.95));
+      seam.addColorStop(1, rgba(THEME.horizon, 0));
+      ctx.fillStyle = seam;
+      ctx.fillRect(0, 178, width, 72);
 
       // The stream, running west to east just below the treeline.
       const riverTop = 210;
@@ -331,7 +329,7 @@ export class WoodsScene extends WorldScene {
       ctx.fillStyle = shade;
       ctx.fillRect(0, SHORE_Y, width, 220);
 
-      paintMist(ctx, width, height, THEME.mist, 17, 6);
+      paintMist(ctx, width, height, THEME.mist, 17, 4, { top: SHORE_Y - 30, height: 240 });
     });
   }
 
@@ -345,34 +343,48 @@ export class WoodsScene extends WorldScene {
     this.addCollider(LANDMARKS.stones.x - 92, LANDMARKS.stones.y - 30, 184, 34);
     this.addCollider(LANDMARKS.log.x - 84, LANDMARKS.log.y - 26, 168, 30);
 
-    // Trees, placed so they never crowd anything the player needs to reach.
-    const clearPoints = [
-      ...MOONFLOWERS,
-      ...Object.values(LANDMARKS),
-      { x: 700, y: 790 },
-      { x: 1430, y: 520 }
+    // Trees frame the wood rather than fill it: a dense wall around the edge,
+    // a handful of interior stands, and genuine clearings around everything
+    // the player has to reach.
+    const clearings = [
+      ...MOONFLOWERS.map((f) => ({ x: f.x, y: f.y, r: 150 })),
+      ...Object.values(LANDMARKS).map((p) => ({ x: p.x, y: p.y, r: 140 })),
+      { x: 700, y: 790, r: 190 },
+      // The old path from the clearing to the eastern archway.
+      { x: 760, y: 760, r: 120 }, { x: 900, y: 690, r: 120 },
+      { x: 1080, y: 640, r: 120 }, { x: 1250, y: 560, r: 120 }
     ];
-    const random = makeRandom(2024);
-    this.trees = [];
-    let guard = 0;
-    while (this.trees.length < 38 && guard < 4000) {
-      guard += 1;
-      const x = 40 + random() * (WORLD.width - 80);
-      const y = SHORE_Y + 20 + random() * (WORLD.height - SHORE_Y - 60);
-      if (clearPoints.some((p) => Math.hypot(p.x - x, p.y - y) < 120)) continue;
-      if (this.trees.some((t) => Math.hypot(t.x - x, t.y - y) < 130)) continue;
-      // Keep the stone path walkable.
-      if (Math.abs(y - (900 - (x - 700) * 0.28)) < 60 && x > 640) continue;
-      const sprite = this.treeSprites[Math.floor(random() * this.treeSprites.length)];
-      this.trees.push({ x, y, sprite });
-      this.addCollider(x - 13, y - 10, 26, 14);
+
+    this.trees = scatterWoodland({
+      seed: 2024,
+      sprites: this.treeSprites,
+      bounds: { x: 30, y: SHORE_Y + 10, width: WORLD.width - 60, height: WORLD.height - SHORE_Y - 40 },
+      clearings,
+      border: { thickness: 150, count: 34 },
+      fill: 14,
+      stands: [
+        { x: 180, y: 420, count: 5, spread: 90 },
+        { x: 520, y: 560, count: 4, spread: 80 },
+        { x: 1000, y: 880, count: 5, spread: 95 },
+        { x: 1380, y: 780, count: 4, spread: 85 },
+        { x: 900, y: 340, count: 3, spread: 70 },
+        { x: 1400, y: 340, count: 4, spread: 80 }
+      ],
+      minSpacing: 74
+    });
+    for (const tree of this.trees) {
+      if (tree.species === 'shrub') continue;
+      this.addCollider(tree.x - tree.radius, tree.y - 9, tree.radius * 2, 13);
     }
   }
 
   #buildScenery() {
     this.entities = [];
     for (const tree of this.trees) {
-      this.addEntity({ y: tree.y, draw: (ctx) => tree.sprite.draw(ctx, tree.x, tree.y) });
+      this.addEntity({
+        x: tree.x, y: tree.y, cullRadius: 130,
+        draw: (ctx) => tree.sprite.draw(ctx, tree.x, tree.y)
+      });
     }
     this.addEntity({ y: LANDMARKS.stones.y, draw: (ctx) => this.stoneSprite.draw(ctx, LANDMARKS.stones.x, LANDMARKS.stones.y) });
     this.addEntity({ y: LANDMARKS.log.y, draw: (ctx) => this.logSprite.draw(ctx, LANDMARKS.log.x, LANDMARKS.log.y) });

@@ -9,12 +9,13 @@
 import { WorldScene } from '../engine/worldScene.js';
 import { createBuffer } from '../engine/renderer.js';
 import {
-  paintGround, paintNightSky, paintStonePath, drawTree, drawCottage, drawFlowerCluster,
+  paintGround, paintNightSky, paintStonePath, drawCottage, drawFlowerCluster,
   drawMushroom, drawFern, drawLantern, drawLampPost, drawMoon, drawPersonalStar,
   drawArch, drawThreeStars, drawVine, paintMist, drawLightPool,
   makeRandom, makeSprite, rgba, starPath
 } from '../engine/art.js';
 import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
+import { buildTreeSprites, scatterWoodland } from '../engine/foliage.js';
 import { drawGuardian } from '../engine/sprites.js';
 import { COTTAGE } from '../data/dialogue.js';
 import { runGuardianTrial } from '../puzzles/panels.js';
@@ -114,15 +115,7 @@ export class CottageScene extends WorldScene {
   /* ------------------------------------------------------------- scenery */
 
   #buildSprites() {
-    const random = makeRandom(818);
-    this.treeSprites = [];
-    for (let i = 0; i < 4; i++) {
-      const scale = 1.0 + random() * 0.5;
-      this.treeSprites.push(makeSprite({
-        width: 150 * scale, height: 150 * scale, anchorX: 75 * scale, anchorY: 136 * scale,
-        paint: (ctx) => drawTree(ctx, 0, 0, scale, TREE_PALETTE, 700 + i)
-      }));
-    }
+    this.treeSprites = buildTreeSprites(TREE_PALETTE, 818);
 
     this.tableSprite = makeSprite({
       width: 130, height: 110, anchorX: 65, anchorY: 84,
@@ -286,6 +279,11 @@ export class CottageScene extends WorldScene {
         paintGround(lctx, w, h, { base: THEME.ground, patch: THEME.groundPatch, seed: 61, patchCount: 260 });
       });
       ctx.drawImage(lawn, 0, 170);
+      const seam = ctx.createLinearGradient(0, 158, 0, 232);
+      seam.addColorStop(0, rgba(THEME.horizon, 0.95));
+      seam.addColorStop(1, rgba(THEME.horizon, 0));
+      ctx.fillStyle = seam;
+      ctx.fillRect(0, 158, width, 74);
 
       paintStonePath(ctx, [
         { x: 620, y: 840 }, { x: 620, y: 700 }, { x: 620, y: 500 }, { x: 620, y: 430 }
@@ -326,7 +324,7 @@ export class CottageScene extends WorldScene {
       drawVine(ctx, [{ x: 1110, y: 520 }, { x: 1104, y: 478 }, { x: 1114, y: 438 }], 1.2,
         { stem: '#3d6b4f', leaf: '#4f8f63', leafDark: '#356b4c' }, 33);
 
-      paintMist(ctx, width, height, THEME.mist, 29, 5);
+      paintMist(ctx, width, height, THEME.mist, 29, 3, { top: SHORE_Y - 20, height: 200 });
     });
   }
 
@@ -345,28 +343,39 @@ export class CottageScene extends WorldScene {
       this.addCollider(SPOTS[key].x - 16, SPOTS[key].y - 12, 32, 14);
     }
 
-    const clearPoints = Object.values(SPOTS).concat([{ x: 620, y: 790 }]);
-    const random = makeRandom(1313);
-    this.trees = [];
-    let guard = 0;
-    while (this.trees.length < 16 && guard < 2500) {
-      guard += 1;
-      const x = 40 + random() * (WORLD.width - 80);
-      const y = SHORE_Y + 10 + random() * (WORLD.height - SHORE_Y - 40);
-      if (clearPoints.some((p) => Math.hypot(p.x - x, p.y - y) < 160)) continue;
-      if (this.trees.some((t) => Math.hypot(t.x - x, t.y - y) < 150)) continue;
-      if (Math.abs(x - 620) < 90) continue; // keep the front path clear
-      if (y > 440 && y < 520 && x > 700) continue; // and the path east
-      const sprite = this.treeSprites[Math.floor(random() * this.treeSprites.length)];
-      this.trees.push({ x, y, sprite });
-      this.addCollider(x - 13, y - 10, 26, 14);
+    // A ring of trees closes the garden in; the lawn itself stays open.
+    const clearings = [
+      ...Object.values(SPOTS).map((p) => ({ x: p.x, y: p.y, r: 130 })),
+      { x: 620, y: 790, r: 170 },
+      { x: 620, y: 620, r: 130 },
+      { x: 880, y: 480, r: 120 }
+    ];
+    this.trees = scatterWoodland({
+      seed: 1313,
+      sprites: this.treeSprites,
+      bounds: { x: 30, y: SHORE_Y, width: WORLD.width - 60, height: WORLD.height - SHORE_Y - 30 },
+      clearings,
+      border: { thickness: 120, count: 22 },
+      stands: [
+        { x: 140, y: 700, count: 3, spread: 70 },
+        { x: 1120, y: 720, count: 3, spread: 70 }
+      ],
+      fill: 8,
+      minSpacing: 78
+    });
+    for (const tree of this.trees) {
+      if (tree.species === 'shrub') continue;
+      this.addCollider(tree.x - tree.radius, tree.y - 9, tree.radius * 2, 13);
     }
   }
 
   #buildScenery() {
     this.entities = [];
     for (const tree of this.trees) {
-      this.addEntity({ y: tree.y, draw: (ctx) => tree.sprite.draw(ctx, tree.x, tree.y) });
+      this.addEntity({
+        x: tree.x, y: tree.y, cullRadius: 130,
+        draw: (ctx) => tree.sprite.draw(ctx, tree.x, tree.y)
+      });
     }
 
     this.addEntity({

@@ -336,7 +336,10 @@ await h.clickPanel('There is one more line');
 const question = await page.locator('#overlay .final-question').innerText();
 check('the question is shown', question.toLowerCase().includes('prom'), question);
 check('both responses are offered',
-  (await page.locator('#overlay .panel-actions button').count()) === 2);
+  (await page.locator('#overlay .question-actions button').count()) === 2);
+check('the question is presented in the illustrated frame',
+  (await page.locator('#overlay .ornate.question-frame').count()) === 1);
+check('the HUD steps aside for the finale', await page.locator('#hud').isHidden());
 
 await page.locator('#overlay button', { hasText: 'Yes, of course!' }).click();
 check('the closing page is reached', await h.pump(h.panelHas('Stay in the garden'), { seconds: 60 }));

@@ -51,6 +51,9 @@ export class WorldScene {
     this.skyColor = PALETTE.night;
     this.busy = false;
     this.nearest = null;
+    /** When set, the camera watches this point instead of the heroine. */
+    this.cameraFocus = null;
+    this.scriptedWalk = null;
   }
 
   /* ------------------------------------------------------------ lifecycle */
@@ -132,9 +135,10 @@ export class WorldScene {
   update(dt) {
     this.time += dt;
     const game = this.game;
-    const canMove = !this.busy && !game.ui.dialogue.active && !game.ui.panelOpen;
+    const canMove = !this.busy && !this.scriptedWalk && !game.ui.dialogue.active && !game.ui.panelOpen;
 
-    this.#movePlayer(canMove ? game.input.axis() : { x: 0, y: 0 }, dt);
+    if (this.scriptedWalk) this.#advanceScriptedWalk(dt);
+    else this.#movePlayer(canMove ? game.input.axis() : { x: 0, y: 0 }, dt);
     this.#updateAnim(dt);
     this.#updateTheo(dt);
 
@@ -189,6 +193,54 @@ export class WorldScene {
 
     p.x = Math.max(PLAYER_RADIUS, Math.min(this.world.width - PLAYER_RADIUS, p.x));
     p.y = Math.max(PLAYER_RADIUS, Math.min(this.world.height - PLAYER_RADIUS, p.y));
+  }
+
+  /**
+   * Walks her to a spot by herself, for the scripted moments. Collision is
+   * ignored on purpose: these paths are authored, not navigated.
+   */
+  walkTo(x, y, seconds = 1.3) {
+    return new Promise((resolve) => {
+      if (this.game.settings.reducedMotion) {
+        this.player.x = x;
+        this.player.y = y;
+        resolve();
+        return;
+      }
+      this.scriptedWalk = {
+        fromX: this.player.x, fromY: this.player.y,
+        toX: x, toY: y, t: 0, seconds, resolve
+      };
+    });
+  }
+
+  #advanceScriptedWalk(dt) {
+    const walk = this.scriptedWalk;
+    walk.t = Math.min(1, walk.t + dt / walk.seconds);
+    // Ease in and out so she starts and stops like a person, not a slider.
+    const eased = walk.t * walk.t * (3 - 2 * walk.t);
+    const nextX = walk.fromX + (walk.toX - walk.fromX) * eased;
+    const nextY = walk.fromY + (walk.toY - walk.fromY) * eased;
+    const dx = nextX - this.player.x;
+    const dy = nextY - this.player.y;
+    this.player.x = nextX;
+    this.player.y = nextY;
+    this.player.moving = Math.hypot(dx, dy) > 0.2;
+    if (this.player.moving) {
+      this.player.facing = facingFromVector(dx, dy, this.player.facing);
+      this.player.walkTime += dt;
+      this.player.stepTimer -= dt;
+      if (this.player.stepTimer <= 0) {
+        this.player.stepTimer = STEP_INTERVAL;
+        this.game.audio.footstep();
+      }
+    }
+    if (walk.t >= 1) {
+      this.player.moving = false;
+      const done = walk.resolve;
+      this.scriptedWalk = null;
+      done();
+    }
   }
 
   /** Applies one axis of movement unless something solid is in the way. */
@@ -329,7 +381,13 @@ export class WorldScene {
   draw(renderer) {
     const ctx = renderer.ctx;
     const reduced = this.game.settings.reducedMotion;
-    renderer.followCamera(this.player.x, this.player.y - 24, this.world, reduced ? 1 : 0.14);
+    const focus = this.cameraFocus;
+    renderer.followCamera(
+      focus ? focus.x : this.player.x,
+      focus ? focus.y : this.player.y - 24,
+      this.world,
+      reduced ? 1 : (focus ? 0.05 : 0.14)
+    );
 
     renderer.clear(this.skyColor);
     renderer.beginWorld();
@@ -337,7 +395,7 @@ export class WorldScene {
 
     this.drawBackground(ctx);
     if (this.lightPools.length) {
-      drawLightPools(ctx, this.lightPools, this.time, PALETTE.moonlit, reduced ? 0.45 : 0.62);
+      drawLightPools(ctx, this.lightPools, this.time, PALETTE.moonlit, reduced ? 0.3 : 0.42);
     }
     this.drawBehind?.(ctx, this.time);
     if (this.tufts.length) drawSwayingTufts(ctx, this.tufts, reduced ? 0 : this.time, bounds);

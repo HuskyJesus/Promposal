@@ -77,6 +77,8 @@ export class Game {
       this.scene?.tapAt?.(point.x, point.y);
     };
 
+    this.ui.onPanelChange = () => this.#checkOrientation();
+
     this.ui.menuButton.addEventListener('click', () => {
       this.audio.unlock();
       this.openMenu();
@@ -120,7 +122,8 @@ export class Game {
     const hint = document.getElementById('rotate-hint');
     const portrait = window.innerHeight > window.innerWidth;
     const playing = this.scene && this.scene.showsHud !== false;
-    hint.hidden = !(portrait && playing && !this.rotateDismissed && !this.ui.panelOpen);
+    const cinematic = this.scene?.name === 'garden';
+    hint.hidden = !(portrait && playing && !cinematic && !this.rotateDismissed && !this.ui.panelOpen);
   }
 
   /* ------------------------------------------------------------ scene flow */

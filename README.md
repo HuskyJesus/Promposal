@@ -49,8 +49,9 @@ browsers block ES modules loaded over `file://`. Use a server.
 ## Tests
 
 ```bash
-npm test           # puzzle rules and saved-progress logic (Node's test runner)
-npm run test:e2e   # full playthrough in a real browser (needs Playwright)
+npm test               # puzzle rules and saved-progress logic
+npm run test:e2e       # full playthrough in a real browser (needs Playwright)
+npm run test:resilience # adversarial pass: tries to break the game
 ```
 
 The unit tests check the things that matter for a game somebody only plays
@@ -60,6 +61,13 @@ restarting a chapter and erasing progress all do what they claim.
 
 The end-to-end suite drives a headless Chromium through the entire story from
 the title screen to the final page, in both landscape and portrait.
+
+The resilience suite tries to break it on purpose: hammering the dialogue box,
+rotating the phone mid-sentence and mid-puzzle, refreshing in the instant
+between collecting the last moonflower and being handed the fragment, pairing
+every wrong mural panel, exhausting every hint, replaying the ending three
+times, resetting a finished game, and loading saves written by an older build
+or naming a chapter that no longer exists.
 
 ## Controls
 
@@ -103,6 +111,7 @@ src/
     theme.js          the whole colour system in one place
     art.js            procedural scenery: trees, paths, lanterns, skies,
                       mist, light pools and foreground foliage
+    foliage.js        tree sprite caching and woodland composition
     sprites.js        characters and dialogue portraits
     particles.js      fireflies, petals, sparks
     audio.js          procedural music, ambience and sound effects

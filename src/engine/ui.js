@@ -31,6 +31,55 @@ export function el(tag, props = {}, children = []) {
 
 const FOCUSABLE = 'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function svg(viewBox, markup, className) {
+  const node = document.createElementNS(SVG_NS, 'svg');
+  node.setAttribute('viewBox', viewBox);
+  node.setAttribute('aria-hidden', 'true');
+  node.setAttribute('focusable', 'false');
+  if (className) node.setAttribute('class', className);
+  node.innerHTML = markup;
+  return node;
+}
+
+/** Gold filigree for one corner of an illustrated frame. */
+function frameCorner(position) {
+  return svg('0 0 64 64', `
+    <g fill="none" stroke="var(--c-gold)" stroke-width="2.4" stroke-linecap="round">
+      <path d="M6 30V12a6 6 0 0 1 6-6h18"/>
+      <path d="M14 30V18a4 4 0 0 1 4-4h12" opacity=".65"/>
+      <path d="M30 6c6 0 10 3 12 7M6 30c0 6 3 10 7 12" opacity=".5"/>
+    </g>
+    <g fill="var(--c-gold)">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M34 10c3 1 5 3 6 6-3-1-5-3-6-6ZM10 34c1 3 3 5 6 6-1-3-3-5-6-6Z" opacity=".75"/>
+    </g>`, `frame-corner frame-corner-${position}`);
+}
+
+/** Three silver stars, the mark that runs through the whole story. */
+export function threeStarsMark(className = 'three-stars') {
+  return svg('0 0 120 34', `
+    <g fill="var(--c-silver)">
+      <path d="M60 2 64 14 76 18 64 22 60 34 56 22 44 18 56 14Z"/>
+      <path d="M20 10 23 18 31 21 23 24 20 32 17 24 9 21 17 18Z" opacity=".85"/>
+      <path d="M100 10 103 18 111 21 103 24 100 32 97 24 89 21 97 18Z" opacity=".85"/>
+    </g>`, className);
+}
+
+/**
+ * An illustrated storybook frame: filigree corners, three stars at the head,
+ * and a soft lavender glow. Used for the moments that should not look like a
+ * dialog box.
+ */
+export function ornateFrame(children, { className = '', label, stars = true } = {}) {
+  return el('div', { class: `ornate ${className}`.trim(), role: 'dialog', 'aria-label': label }, [
+    frameCorner('tl'), frameCorner('tr'), frameCorner('bl'), frameCorner('br'),
+    stars ? threeStarsMark() : null,
+    el('div', { class: 'ornate-inner' }, children)
+  ]);
+}
+
 export class UI {
   constructor({ audio, settings }) {
     this.audio = audio;
@@ -54,6 +103,9 @@ export class UI {
     this.captionTimer = 0;
     this.lastFocused = null;
     this.panelStack = [];
+
+    /** The game listens so the rotate hint never sits on top of a panel. */
+    this.onPanelChange = () => {};
 
     this.overlay.addEventListener('keydown', (event) => this.#handleOverlayKey(event));
     // The thumb stick and action button step aside while she is reading, so
@@ -144,7 +196,7 @@ export class UI {
    * Panels stack: opening "How to play" from the menu hides the menu and then
    * puts it back when the new panel closes.
    */
-  openPanel(build, { clear = false, dismissable = false } = {}) {
+  openPanel(build, { clear = false, dismissable = false, scrim = 'full' } = {}) {
     return new Promise((resolve) => {
       const parent = this.panelStack[this.panelStack.length - 1];
       if (parent) {
@@ -156,9 +208,10 @@ export class UI {
 
       this.overlay.hidden = false;
       this.overlay.dataset.clear = String(clear);
+      this.overlay.dataset.scrim = scrim;
       this.overlay.replaceChildren();
 
-      const entry = { resolve, clear, dismissable, nodes: [], focused: null };
+      const entry = { resolve, clear, scrim, dismissable, nodes: [], focused: null };
       this.panelStack.push(entry);
 
       const close = (result) => {
@@ -169,6 +222,7 @@ export class UI {
         const previous = this.panelStack[this.panelStack.length - 1];
         if (previous) {
           this.overlay.dataset.clear = String(previous.clear);
+          this.overlay.dataset.scrim = previous.scrim;
           this.overlay.replaceChildren(...previous.nodes);
           const target = previous.focused instanceof HTMLElement && this.overlay.contains(previous.focused)
             ? previous.focused
@@ -181,11 +235,13 @@ export class UI {
             this.lastFocused.focus({ preventScroll: true });
           }
         }
+        this.onPanelChange();
         resolve(result);
       };
 
       entry.close = close;
       this.overlay.append(build(close));
+      this.onPanelChange();
 
       const firstFocusable = this.overlay.querySelector(FOCUSABLE);
       if (firstFocusable instanceof HTMLElement) firstFocusable.focus({ preventScroll: true });

@@ -58,17 +58,20 @@ export class TitleScene {
       ctx.fillRect(0, height * 0.78, width, height * 0.22);
 
       const random = makeRandom(17);
-      const far = { bark: '#1d1a30', leaf: '#252c4e', leafDark: '#191f3a', rim: PALETTE.lavender };
-      for (let i = 0; i < 14; i++) {
-        drawTree(ctx, random() * width, height * (0.68 + random() * 0.06), 0.7 + random() * 0.3, far, 100 + i);
+      const species = ['oak', 'pine', 'birch', 'oak', 'willow', 'pine'];
+      const far = { bark: '#1d1a30', leaf: '#252c4e', leafDark: '#191f3a', rim: '#3b4676' };
+      for (let i = 0; i < 16; i++) {
+        drawTree(ctx, random() * width, height * (0.66 + random() * 0.08),
+          0.62 + random() * 0.3, far, 100 + i, species[i % species.length]);
       }
-      const near = { bark: '#241b26', leaf: '#1f3a34', leafDark: '#16292a', rim: PALETTE.lavenderLight };
-      for (let i = 0; i < 8; i++) {
-        drawTree(ctx, random() * width, height * (0.86 + random() * 0.12), 1.1 + random() * 0.5, near, 200 + i);
+      const near = { bark: '#241b26', leaf: '#1f3a34', leafDark: '#16292a', rim: '#33604f' };
+      for (let i = 0; i < 9; i++) {
+        drawTree(ctx, random() * width, height * (0.86 + random() * 0.14),
+          1.0 + random() * 0.45, near, 200 + i, species[(i + 2) % species.length]);
       }
 
       // A path leading out of frame, hinting the journey.
-      ctx.fillStyle = rgba('#6a5c46', 0.35);
+      ctx.fillStyle = rgba('#6a5c46', 0.2);
       ctx.beginPath();
       ctx.moveTo(width * 0.42, height);
       ctx.quadraticCurveTo(width * 0.5, height * 0.86, width * 0.56, height * 0.78);
@@ -77,7 +80,7 @@ export class TitleScene {
       ctx.closePath();
       ctx.fill();
 
-      paintMist(ctx, width, height, 'rgba(185,163,227,0.12)', 63, 5);
+      paintMist(ctx, width, height, 'rgba(185,163,227,0.11)', 63, 3, { top: height * 0.5, height: height * 0.2 });
     });
   }
 
@@ -148,8 +151,7 @@ export class TitleScene {
 
     if (action === 'continue') {
       game.ui.setFragments(game.save.progress.fragments.length);
-      const chapter = game.save.progress.chapter || 'woods';
-      await game.goTo(chapter, { continued: true });
+      await game.goTo(game.save.progress.chapter, { continued: true });
       return;
     }
 
@@ -184,14 +186,18 @@ export class TitleScene {
     ctx.scale(scale, scale);
     ctx.drawImage(this.background, 0, 0);
 
-    drawMoon(ctx, this.width * 0.18, this.height * 0.2, 34, this.time);
-    drawPersonalStar(ctx, this.width * 0.78, this.height * 0.24, this.time, 1.1);
-    drawThreeStars(ctx, this.width * 0.5, this.height * 0.12, 0.9, PALETTE.silver, [true, true, true], this.time);
     drawLampPost(ctx, this.width * 0.14, this.height * 0.95, 1.3, true, this.time);
     drawLampPost(ctx, this.width * 0.88, this.height * 0.99, 1.5, true, this.time + 1.4);
-
     this.fireflies.draw(ctx, this.time, this.fireflies.palette);
     ctx.restore();
+
+    // Sky landmarks are placed against the screen so a portrait phone keeps
+    // the moon and the personal star in frame.
+    const screenW = renderer.width;
+    const screenH = renderer.height;
+    drawMoon(ctx, screenW * 0.16, screenH * 0.13, Math.max(22, Math.min(38, screenW * 0.05)), this.time);
+    drawPersonalStar(ctx, screenW * 0.82, screenH * 0.17, this.time, 1.15);
+    drawThreeStars(ctx, screenW * 0.5, screenH * 0.055, 0.85, PALETTE.silver, [true, true, true], this.time);
 
     drawVignette(ctx, renderer.width, renderer.height, 0.5);
   }

@@ -142,6 +142,37 @@ test('corrupt saved data falls back to a playable state', () => {
   assert.deepEqual(save.progress.fragments, []);
 });
 
+test('a chapter this build does not have falls back to the first one', () => {
+  storage.clear();
+  storage.setItem('unwritten-page:progress:v1', JSON.stringify({ chapter: 'catacombs', startedAt: 1 }));
+  const save = new SaveStore();
+  assert.equal(save.progress.chapter, 'woods');
+});
+
+test('duplicate or unknown fragments are cleaned up on load', () => {
+  storage.clear();
+  storage.setItem('unwritten-page:progress:v1', JSON.stringify({
+    chapter: 'hall', startedAt: 1,
+    fragments: ['woods', 'woods', 'garden', 'nonsense', 'cottage'],
+    moonflowers: 'not an array'
+  }));
+  const save = new SaveStore();
+  assert.deepEqual(save.progress.fragments, ['woods', 'cottage']);
+  assert.deepEqual(save.progress.moonflowers, []);
+});
+
+test('malformed flags and hint counts are replaced with empty objects', () => {
+  storage.clear();
+  storage.setItem('unwritten-page:progress:v1', JSON.stringify({
+    chapter: 'woods', startedAt: 1, flags: 'broken', hintCounts: 7, endingSeen: 'yes'
+  }));
+  const save = new SaveStore();
+  assert.deepEqual(save.progress.flags, {});
+  assert.deepEqual(save.progress.hintCounts, {});
+  assert.equal(save.progress.endingSeen, true);
+  assert.equal(save.hasFlag('anything'), false);
+});
+
 test('partial saved data is merged onto the defaults', () => {
   storage.clear();
   storage.setItem('unwritten-page:progress:v1', JSON.stringify({ chapter: 'hall', startedAt: 1 }));

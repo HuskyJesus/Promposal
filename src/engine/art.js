@@ -27,10 +27,28 @@ export function mix(hexA, hexB, t) {
   return `rgb(${Math.round(lerp(a[0], b[0], t))},${Math.round(lerp(a[1], b[1], t))},${Math.round(lerp(a[2], b[2], t))})`;
 }
 
-export function hexToRgb(hex) {
-  const clean = hex.replace('#', '');
+/**
+ * Accepts `#abc`, `#aabbcc` and `rgb(...)`/`rgba(...)`.
+ *
+ * The `rgb()` case matters: `mix()` returns one, and mixed colours are
+ * routinely mixed again or faded with `rgba()`. Parsing only hex made those
+ * calls produce an invalid colour, which canvas silently ignores — leaving
+ * whatever fill style happened to be set before.
+ */
+export function hexToRgb(color) {
+  if (typeof color !== 'string') return [0, 0, 0];
+  if (color.startsWith('rgb')) {
+    const parts = color.slice(color.indexOf('(') + 1, color.indexOf(')')).split(',');
+    return [
+      Math.round(parseFloat(parts[0])) || 0,
+      Math.round(parseFloat(parts[1])) || 0,
+      Math.round(parseFloat(parts[2])) || 0
+    ];
+  }
+  const clean = color.replace('#', '');
   const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
   const n = parseInt(full, 16);
+  if (Number.isNaN(n)) return [0, 0, 0];
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
@@ -152,71 +170,249 @@ function roundedBlob(ctx, x, y, w, h, random) {
    Plants
    ------------------------------------------------------------------------- */
 
-/** A rounded storybook tree: trunk, layered canopy, warm rim light. */
-export function drawTree(ctx, x, y, scale, palette, seed = 1) {
+/**
+ * Draws the trunk shared by the broadleaf shapes: a tapering, slightly leaning
+ * column with bark grain and a lit edge.
+ */
+function paintTrunk(ctx, scale, palette, random, { height, width, lean, pale = false }) {
+  const bark = pale ? mix(palette.bark, '#e8e2d6', 0.62) : palette.bark;
+  ctx.beginPath();
+  ctx.moveTo(-width / 2, 0);
+  ctx.quadraticCurveTo(-width / 2 + lean * 0.4, -height * 0.55, lean - width * 0.3, -height);
+  ctx.lineTo(lean + width * 0.3, -height);
+  ctx.quadraticCurveTo(width / 2 + lean * 0.4, -height * 0.55, width / 2, 0);
+  ctx.closePath();
+  ctx.fillStyle = bark;
+  ctx.fill();
+
+  // Lit edge on the moon side, shadow on the other.
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = rgba('#ffffff', pale ? 0.22 : 0.12);
+  ctx.fillRect(-width / 2, -height, width * 0.34, height);
+  ctx.fillStyle = rgba('#000000', 0.22);
+  ctx.fillRect(width * 0.08, -height, width * 0.5, height);
+  // Bark grain, or birch marks on a pale trunk.
+  ctx.strokeStyle = rgba('#000000', pale ? 0.5 : 0.2);
+  ctx.lineWidth = pale ? 2.2 * scale : 1.1 * scale;
+  ctx.lineCap = 'round';
+  const marks = pale ? 4 : 3;
+  for (let i = 0; i < marks; i++) {
+    const my = -height * (0.18 + random() * 0.7);
+    ctx.beginPath();
+    if (pale) {
+      ctx.moveTo(-width * 0.36 + random() * width * 0.3, my);
+      ctx.lineTo(-width * 0.06 + random() * width * 0.3, my + 1.2 * scale);
+    } else {
+      ctx.moveTo(-width * 0.22, my);
+      ctx.quadraticCurveTo(0, my + 6 * scale, width * 0.22, my + 2 * scale);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Roots flaring into the ground.
+  ctx.fillStyle = bark;
+  ctx.beginPath();
+  ctx.moveTo(-width * 0.9, 0);
+  ctx.quadraticCurveTo(-width * 0.4, -width * 0.32, -width * 0.3, 0);
+  ctx.lineTo(width * 0.3, 0);
+  ctx.quadraticCurveTo(width * 0.4, -width * 0.32, width * 0.9, 0);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * A canopy built from clumps rather than one disc: a dark mass, lit clumps
+ * gathered toward the moon, and a scalloped rim of individual leaves. This is
+ * what stops a forest reading as a field of identical circles.
+ */
+function paintCanopy(ctx, scale, palette, random, { cx, cy, radiusX, radiusY, clumps = 7 }) {
+  const rim = [];
+  for (let i = 0; i < clumps; i++) {
+    const a = (i / clumps) * Math.PI * 2 + random() * 0.3;
+    rim.push({
+      x: cx + Math.cos(a) * radiusX * 0.52,
+      y: cy + Math.sin(a) * radiusY * 0.52,
+      r: (0.46 + random() * 0.24) * radiusX
+    });
+  }
+
+  // Dark base mass.
+  ctx.fillStyle = palette.leafDark;
+  ctx.beginPath();
+  for (const c of rim) {
+    ctx.moveTo(c.x + c.r, c.y);
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+  }
+  ctx.fill();
+
+  // Mid tone gathered up and to the left.
+  ctx.fillStyle = palette.leaf;
+  ctx.beginPath();
+  for (const c of rim) {
+    const lit = (c.x - cx) * -0.35 + (c.y - cy) * -0.35;
+    const r = c.r * (0.62 + Math.max(0, lit / radiusX) * 0.3);
+    ctx.moveTo(c.x - radiusX * 0.09 + r, c.y - radiusY * 0.12);
+    ctx.arc(c.x - radiusX * 0.09, c.y - radiusY * 0.12, r, 0, Math.PI * 2);
+  }
+  ctx.fill();
+
+  // Two or three brighter clumps catching the moonlight, kept to the top left.
+  ctx.fillStyle = mix(palette.leaf, palette.rim, 0.26);
+  for (let i = 0; i < 3; i++) {
+    const a = Math.PI * (1.08 + i * 0.2);
+    const r = radiusX * (0.15 + random() * 0.1);
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * radiusX * 0.4, cy + Math.sin(a) * radiusY * 0.46, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Shade gathering under the lower right, as a soft gradient so it never
+  // reads as a second, darker blob sitting on top of the leaves.
+  const shade = ctx.createRadialGradient(
+    cx + radiusX * 0.22, cy + radiusY * 0.5, radiusX * 0.1,
+    cx + radiusX * 0.22, cy + radiusY * 0.5, radiusX * 0.95
+  );
+  shade.addColorStop(0, 'rgba(0,0,0,0.2)');
+  shade.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save();
+  ctx.beginPath();
+  for (const c of rim) {
+    ctx.moveTo(c.x + c.r, c.y);
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+  }
+  ctx.clip();
+  ctx.fillStyle = shade;
+  ctx.fillRect(cx - radiusX * 1.4, cy - radiusY * 1.4, radiusX * 2.8, radiusY * 2.8);
+  ctx.restore();
+}
+
+/**
+ * A storybook tree. `species` picks the silhouette; every tree also shifts its
+ * own greens a little, so no two are quite the same colour.
+ */
+export function drawTree(ctx, x, y, scale, palette, seed = 1, species = 'oak') {
   const random = makeRandom(seed);
-  const trunkH = 46 * scale;
-  const trunkW = 13 * scale;
+  // Per-tree colour drift keeps a forest from looking stamped.
+  const drift = (random() - 0.5) * 0.34;
+  const tinted = {
+    bark: mix(palette.bark, drift > 0 ? '#5a4038' : '#241a20', Math.abs(drift) * 0.7),
+    leaf: mix(palette.leaf, drift > 0 ? '#6aa878' : '#1f5a56', Math.abs(drift)),
+    leafDark: mix(palette.leafDark, drift > 0 ? '#2b6a4c' : '#14342e', Math.abs(drift) * 0.8),
+    rim: palette.rim
+  };
 
   ctx.save();
   ctx.translate(x, y);
 
-  // Shadow pooled on the ground.
-  ctx.fillStyle = rgba('#000000', 0.28);
+  // Contact shadow, softer and offset away from the moon.
+  const shadow = ctx.createRadialGradient(6 * scale, 2 * scale, 0, 6 * scale, 2 * scale, 34 * scale);
+  shadow.addColorStop(0, 'rgba(0,0,0,0.34)');
+  shadow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = shadow;
   ctx.beginPath();
-  ctx.ellipse(0, 2 * scale, 30 * scale, 10 * scale, 0, 0, Math.PI * 2);
+  ctx.ellipse(6 * scale, 2 * scale, 34 * scale, 12 * scale, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Trunk with a slight lean.
-  const lean = (random() - 0.5) * 8 * scale;
-  ctx.beginPath();
-  ctx.moveTo(-trunkW / 2, 0);
-  ctx.quadraticCurveTo(-trunkW / 2 + lean * 0.5, -trunkH * 0.6, lean - trunkW * 0.32, -trunkH);
-  ctx.lineTo(lean + trunkW * 0.32, -trunkH);
-  ctx.quadraticCurveTo(trunkW / 2 + lean * 0.5, -trunkH * 0.6, trunkW / 2, 0);
-  ctx.closePath();
-  ctx.fillStyle = palette.bark;
-  ctx.fill();
-  ctx.fillStyle = rgba('#ffffff', 0.1);
-  ctx.beginPath();
-  ctx.moveTo(trunkW * 0.1, 0);
-  ctx.quadraticCurveTo(trunkW * 0.3 + lean * 0.5, -trunkH * 0.6, lean + trunkW * 0.3, -trunkH);
-  ctx.lineTo(lean + trunkW * 0.32, -trunkH);
-  ctx.quadraticCurveTo(trunkW / 2 + lean * 0.5, -trunkH * 0.6, trunkW / 2, 0);
-  ctx.closePath();
-  ctx.fill();
-
-  // Canopy: overlapping soft lobes.
-  const canopyY = -trunkH - 22 * scale;
-  const lobes = 7;
-  ctx.translate(lean, 0);
-  for (let pass = 0; pass < 2; pass++) {
-    // The second pass sits up and to the left of the first, so it reads as
-    // moonlight catching one side of the canopy rather than a ring.
-    const color = pass === 0 ? palette.leafDark : palette.leaf;
-    const shrink = pass === 0 ? 1 : 0.88;
-    const offsetX = pass === 0 ? 0 : -6 * scale;
-    const offsetY = pass === 0 ? 0 : -7 * scale;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    for (let i = 0; i < lobes; i++) {
-      const a = (i / lobes) * Math.PI * 2;
-      const rx = (30 + random() * 12) * scale * shrink;
-      const cx = Math.cos(a) * 22 * scale * shrink + offsetX;
-      const cy = canopyY + Math.sin(a) * 14 * scale * shrink + offsetY;
-      ctx.moveTo(cx + rx, cy);
-      ctx.arc(cx, cy, rx, 0, Math.PI * 2);
-    }
-    ctx.fill();
+  if (species === 'shrub') {
+    paintCanopy(ctx, scale, tinted, random, {
+      cx: 0, cy: -16 * scale, radiusX: 26 * scale, radiusY: 18 * scale, clumps: 5
+    });
+    ctx.restore();
+    return;
   }
 
-  // Rim light from the moon, always upper-left.
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = rgba(palette.rim, 0.14);
-  ctx.beginPath();
-  ctx.arc(-16 * scale, canopyY - 12 * scale, 26 * scale, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
+  if (species === 'pine') {
+    const trunkH = 34 * scale;
+    paintTrunk(ctx, scale, tinted, random, { height: trunkH, width: 10 * scale, lean: 0 });
+    // Three stacked tiers, widest at the bottom.
+    for (let tier = 0; tier < 3; tier++) {
+      const w = (38 - tier * 9) * scale;
+      const ty = -trunkH - tier * 26 * scale;
+      const h = 34 * scale;
+      ctx.fillStyle = tier % 2 ? tinted.leaf : tinted.leafDark;
+      ctx.beginPath();
+      ctx.moveTo(-w, ty);
+      // A scalloped lower edge instead of a straight triangle.
+      for (let i = 0; i <= 6; i++) {
+        const t = i / 6;
+        const px = -w + t * w * 2;
+        const py = ty + Math.sin(t * Math.PI * 3) * 3.5 * scale;
+        ctx.lineTo(px, py);
+      }
+      ctx.lineTo(0, ty - h);
+      ctx.closePath();
+      ctx.fill();
+      // Moonlit left face.
+      ctx.fillStyle = rgba(tinted.rim, 0.12);
+      ctx.beginPath();
+      ctx.moveTo(-w, ty);
+      ctx.lineTo(0, ty - h);
+      ctx.lineTo(-w * 0.2, ty);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
+  }
+
+  if (species === 'willow') {
+    const trunkH = 40 * scale;
+    const lean = (random() - 0.5) * 10 * scale;
+    paintTrunk(ctx, scale, tinted, random, { height: trunkH, width: 13 * scale, lean });
+    ctx.translate(lean, 0);
+    paintCanopy(ctx, scale, tinted, random, {
+      cx: 0, cy: -trunkH - 20 * scale, radiusX: 40 * scale, radiusY: 24 * scale, clumps: 6
+    });
+    // Trailing fronds.
+    ctx.strokeStyle = tinted.leaf;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 9; i++) {
+      const fx = (-1 + (i / 8) * 2) * 34 * scale;
+      const len = (16 + random() * 26) * scale;
+      ctx.lineWidth = (1.4 + random() * 0.9) * scale;
+      ctx.beginPath();
+      ctx.moveTo(fx, -trunkH - 14 * scale);
+      ctx.quadraticCurveTo(fx + 4 * scale, -trunkH - 14 * scale + len * 0.6, fx - 2 * scale, -trunkH - 14 * scale + len);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
+
+  if (species === 'birch') {
+    const trunkH = 60 * scale;
+    const lean = (random() - 0.5) * 12 * scale;
+    paintTrunk(ctx, scale, tinted, random, { height: trunkH, width: 9 * scale, lean, pale: true });
+    ctx.translate(lean, 0);
+    // Airy canopy: three small clumps rather than one mass.
+    for (let i = 0; i < 3; i++) {
+      const a = Math.PI * (0.85 + i * 0.4);
+      paintCanopy(ctx, scale, tinted, random, {
+        cx: Math.cos(a) * 15 * scale,
+        cy: -trunkH - 12 * scale + Math.sin(a) * 8 * scale,
+        radiusX: (17 + random() * 6) * scale,
+        radiusY: (13 + random() * 4) * scale,
+        clumps: 4
+      });
+    }
+    ctx.restore();
+    return;
+  }
+
+  // Oak: the default broadleaf.
+  const trunkH = 44 * scale;
+  const lean = (random() - 0.5) * 9 * scale;
+  paintTrunk(ctx, scale, tinted, random, { height: trunkH, width: 14 * scale, lean });
+  ctx.translate(lean, 0);
+  paintCanopy(ctx, scale, tinted, random, {
+    cx: 0,
+    cy: -trunkH - 22 * scale,
+    radiusX: (42 + random() * 8) * scale,
+    radiusY: (30 + random() * 6) * scale,
+    clumps: 7
+  });
 
   ctx.restore();
 }
@@ -712,11 +908,13 @@ export function drawPersonalStar(ctx, x, y, time, scale = 1, color = '#ffe9a8') 
    ------------------------------------------------------------------------- */
 
 /** Soft drifting bands of mist, baked into a scene's background buffer. */
-export function paintMist(ctx, width, height, color, seed = 3, bands = 7) {
+export function paintMist(ctx, width, height, color, seed = 3, bands = 7, region = null) {
   const random = makeRandom(seed);
+  const top = region ? region.top : height * 0.18;
+  const span = region ? region.height : height * 0.75;
   ctx.save();
   for (let i = 0; i < bands; i++) {
-    const y = height * (0.18 + random() * 0.75);
+    const y = top + random() * span;
     const h = 90 + random() * 180;
     const gradient = ctx.createLinearGradient(0, y - h / 2, 0, y + h / 2);
     gradient.addColorStop(0, 'rgba(255,255,255,0)');
@@ -740,8 +938,8 @@ export function drawLightPools(ctx, pools, time, color, intensity = 1) {
     const pulse = 0.82 + Math.sin(time * 0.7 + i * 1.9) * 0.18;
     const r = pool.r * pulse;
     const gradient = ctx.createRadialGradient(pool.x, pool.y, 0, pool.x, pool.y, r);
-    gradient.addColorStop(0, rgba(color, 0.5 * intensity));
-    gradient.addColorStop(0.55, rgba(color, 0.16 * intensity));
+    gradient.addColorStop(0, rgba(color, 0.36 * intensity));
+    gradient.addColorStop(0.5, rgba(color, 0.12 * intensity));
     gradient.addColorStop(1, rgba(color, 0));
     ctx.fillStyle = gradient;
     ctx.beginPath();

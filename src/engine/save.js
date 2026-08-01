@@ -67,6 +67,28 @@ export class SaveStore {
   constructor() {
     this.progress = readJSON(PROGRESS_KEY, emptyProgress);
     this.settings = readJSON(SETTINGS_KEY, defaultSettings);
+    this.#repair();
+  }
+
+  /**
+   * Saved data is the one input this game cannot control: it may come from an
+   * older build, a half-finished write, or a hand-edited localStorage. Anything
+   * that would send the game somewhere it cannot go is corrected here, once, so
+   * no later code has to defend against it.
+   */
+  #repair() {
+    const p = this.progress;
+    if (!CHAPTERS.includes(p.chapter)) p.chapter = CHAPTERS[0];
+    for (const list of ['moonflowers', 'fragments', 'gossipHeard']) {
+      if (!Array.isArray(p[list])) p[list] = [];
+      // Duplicate entries would over-count fragments and break the pip track.
+      p[list] = [...new Set(p[list].filter((id) => typeof id === 'string'))];
+    }
+    p.fragments = p.fragments.filter((id) => CHAPTERS.includes(id) && id !== 'garden');
+    if (!p.flags || typeof p.flags !== 'object') p.flags = {};
+    if (!p.hintCounts || typeof p.hintCounts !== 'object') p.hintCounts = {};
+    p.endingSeen = Boolean(p.endingSeen);
+    p.saidYes = Boolean(p.saidYes);
   }
 
   /** True when there is a game worth continuing. */

@@ -16,7 +16,7 @@ import {
 import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
 import { GARDEN } from '../data/dialogue.js';
 import { config, fill } from '../config.js';
-import { el, wait } from '../engine/ui.js';
+import { el, wait, ornateFrame } from '../engine/ui.js';
 import { CHAPTER_TITLES } from '../engine/game.js';
 
 const WORLD = { width: 1120, height: 800 };
@@ -65,8 +65,8 @@ export class GardenScene extends WorldScene {
     this.#buildInteractables();
 
     this.lightPools = [
-      { x: DAIS.x, y: DAIS.y + 30, r: 170 },
-      { x: 300, y: 566, r: 100 }, { x: 560, y: 512, r: 100 }, { x: 820, y: 566, r: 100 }
+      { x: DAIS.x, y: DAIS.y + 26, r: 96 },
+      { x: 180, y: 640, r: 60 }, { x: 940, y: 660, r: 60 }, { x: 560, y: 740, r: 66 }
     ];
     this.seedTufts({
       count: 130,
@@ -168,6 +168,22 @@ export class GardenScene extends WorldScene {
       });
       ctx.drawImage(lawn, 0, 200);
 
+      // A dark hedge line along the horizon so the lawn does not simply begin.
+      const hedgeRandom = makeRandom(313);
+      ctx.fillStyle = '#16302a';
+      ctx.beginPath();
+      for (let x = -40; x < width + 40; x += 26) {
+        const r = 18 + hedgeRandom() * 16;
+        ctx.moveTo(x + r, 202);
+        ctx.arc(x, 202, r, Math.PI, Math.PI * 2);
+      }
+      ctx.fill();
+      const blend = ctx.createLinearGradient(0, 188, 0, 258);
+      blend.addColorStop(0, rgba(THEME.horizon, 0.9));
+      blend.addColorStop(1, rgba(THEME.horizon, 0));
+      ctx.fillStyle = blend;
+      ctx.fillRect(0, 188, width, 70);
+
       paintStonePath(ctx, [
         { x: 560, y: 800 }, { x: 560, y: 640 }, { x: 560, y: 500 }, { x: 560, y: 400 }
       ], { width: 60, stone: '#b3aa98', grout: '#2a4a3a', seed: 5 });
@@ -193,7 +209,7 @@ export class GardenScene extends WorldScene {
       drawVine(ctx, [{ x: 1040, y: 700 }, { x: 1024, y: 648 }, { x: 1038, y: 598 }], 1.4,
         { stem: '#2f6a4e', leaf: '#4f8f63', leafDark: '#356b4c' }, 53);
 
-      paintMist(ctx, width, height, THEME.mist, 41, 6);
+      paintMist(ctx, width, height, THEME.mist, 41, 3, { top: SHORE_Y - 50, height: 150 });
     });
   }
 
@@ -247,7 +263,10 @@ export class GardenScene extends WorldScene {
       x: DAIS.x, y: DAIS.y + 30,
       radius: 76, label: 'Read', promptOffset: -70,
       available: () => this.game.save.progress.endingSeen,
-      onInteract: () => this.#finalPages({ replay: true })
+      onInteract: async () => {
+        this.cameraFocus = { x: DAIS.x, y: DAIS.y - 40 };
+        await this.#finalPages({ replay: true });
+      }
     });
 
     this.addInteractable({
@@ -297,13 +316,20 @@ export class GardenScene extends WorldScene {
   async #promiseSequence() {
     this.busy = true;
     this.game.ui.setObjective('');
+    this.game.ui.showHud(false);
+
+    // Theo leads her to the centre; the camera settles on the dais and stays.
+    await this.walkTo(DAIS.x, DAIS.y + 14, 1.6);
+    this.cameraFocus = { x: DAIS.x, y: DAIS.y - 40 };
+    await wait(this.game.settings.reducedMotion ? 100 : 700);
+
     await this.say(GARDEN.beforeStar);
 
     // The three promise lights rise above the dais, one for each word.
     for (let i = 0; i < 3; i++) {
       this.promiseLights = i + 1;
       this.game.audio.sparkle();
-      this.particles.burst(DAIS.x + (i - 1) * 48, DAIS.y - 90, 16, {
+      this.particles.burst(DAIS.x + (i - 1) * 62, DAIS.y - 132, 18, {
         color: ['#ffe9b0', '#fff6d8'], speed: 34, life: 1.4, size: 2.4, shape: 'star', gravity: -10
       });
       await wait(this.game.settings.reducedMotion ? 120 : 520);
@@ -336,13 +362,9 @@ export class GardenScene extends WorldScene {
 
   async #finalPages({ replay }) {
     const game = this.game;
+    game.ui.showHud(false);
 
-    await game.showStoryPage({
-      title: 'The Final Page',
-      paragraphs: splitParagraphs(config.finalMessage),
-      buttonLabel: 'There is one more line',
-      dropcap: false
-    });
+    await this.#readFinalPage();
 
     const answer = await this.#askQuestion();
 
@@ -361,7 +383,27 @@ export class GardenScene extends WorldScene {
     }
 
     game.ui.setObjective('Read the final page again');
+    game.ui.showHud(true);
+    this.cameraFocus = null;
     if (replay) this.busy = false;
+  }
+
+  /** The message itself, in the illustrated frame rather than a dialog box. */
+  #readFinalPage() {
+    const game = this.game;
+    return game.ui.openPanel((close) => ornateFrame([
+      el('h2', { class: 'final-heading', text: 'The Final Page' }),
+      el('div', { class: 'final-message' },
+        splitParagraphs(config.finalMessage).map((text) => el('p', { text: fill(text) }))),
+      el('p', { class: 'signature', text: `— ${config.authorName}` }),
+      el('div', { class: 'panel-actions' }, [
+        el('button', {
+          class: 'menu-button', type: 'button', text: 'There is one more line',
+          onClick: () => { game.audio.pageTurn(); close(true); }
+        })
+      ]),
+      petalVeil(14)
+    ], { className: 'final-frame', label: 'The final page' }), { scrim: 'soft' });
   }
 
   #askQuestion() {
@@ -370,27 +412,28 @@ export class GardenScene extends WorldScene {
       const actions = config.showResponseChoices
         ? [
           el('button', {
-            class: 'menu-button', type: 'button', text: config.responseYesLabel,
+            class: 'answer-yes', type: 'button', text: config.responseYesLabel,
             onClick: () => { game.audio.uiTap(); close('yes'); }
           }),
           el('button', {
-            class: 'menu-button quiet', type: 'button', text: config.responseTalkLabel,
+            class: 'answer-soft', type: 'button', text: config.responseTalkLabel,
             onClick: () => { game.audio.uiTap(); close('talk'); }
           })
         ]
         : [
           el('button', {
-            class: 'menu-button', type: 'button', text: 'Close the book',
+            class: 'answer-yes', type: 'button', text: 'Close the book',
             onClick: () => { game.audio.uiTap(); close('yes'); }
           })
         ];
 
-      return el('div', { class: 'final-panel fade-up', role: 'dialog', 'aria-label': 'The last page' }, [
+      return ornateFrame([
         el('p', { class: 'final-lead', text: fill(config.finalLeadIn) }),
         el('h2', { class: 'final-question', text: fill(config.finalQuestion) }),
-        el('div', { class: 'panel-actions' }, actions)
-      ]);
-    });
+        el('div', { class: 'question-actions' }, actions),
+        petalVeil(18)
+      ], { className: 'question-frame', label: 'The question' });
+    }, { scrim: 'soft' });
   }
 
   async #celebrate() {
@@ -423,11 +466,15 @@ export class GardenScene extends WorldScene {
       await wait(this.game.settings.reducedMotion ? 100 : 420);
     }
     for (let i = 0; i < (this.game.settings.reducedMotion ? 2 : 8); i++) {
+      const angle = Math.random() * Math.PI * 2;
       this.particles.burst(
-        160 + Math.random() * 800,
-        400 + Math.random() * 320,
+        DAIS.x + Math.cos(angle) * (90 + Math.random() * 220),
+        DAIS.y + 40 + Math.sin(angle) * (60 + Math.random() * 150),
         18,
-        { color: ['#f4dff0', '#ffe9b0', '#d98a9a', '#6f9ee8'], speed: 90, life: 2.2, size: 3, shape: 'petal', gravity: 12, drag: 0.97 }
+        {
+          color: [PALETTE.lavenderLight, PALETTE.lavender, PALETTE.goldLight, '#f6ecff'],
+          speed: 90, life: 2.4, size: 3, shape: 'petal', gravity: 12, drag: 0.97
+        }
       );
       await wait(this.game.settings.reducedMotion ? 40 : 160);
     }
@@ -437,27 +484,27 @@ export class GardenScene extends WorldScene {
     const game = this.game;
     const details = [config.promDate, config.promLocation].filter(Boolean).join(' · ');
 
-    return game.ui.openPanel((close) =>
-      el('div', { class: 'final-panel fade-up', role: 'dialog', 'aria-label': 'The end' }, [
-        el('h2', { class: 'panel-title', text: soft ? 'The page stays open' : 'The final page has been written.' }),
-        el('p', { class: 'signature', text: soft ? `He is waiting, and he is not going anywhere. — ${config.guideName}` : fill(config.finalResponseMessage) }),
-        details ? el('p', { class: 'final-note', text: details }) : null,
-        config.memories.length
-          ? el('ul', { class: 'memory-list', 'aria-label': 'Whispered by the flowers' },
-            config.memories.map((memory) => el('li', { text: fill(memory) })))
-          : null,
-        el('div', { class: 'panel-actions' }, [
-          el('button', {
-            class: 'menu-button', type: 'button', text: 'Stay in the garden',
-            onClick: () => { game.audio.uiTap(); close('stay'); }
-          }),
-          el('button', {
-            class: 'menu-button quiet', type: 'button', text: 'Read it again',
-            onClick: () => { game.audio.uiTap(); close('again'); }
-          })
-        ])
-      ])
-    ).then(async (result) => {
+    return game.ui.openPanel((close) => ornateFrame([
+      el('h2', { class: 'final-heading', text: soft ? 'The page stays open' : 'The final page has been written.' }),
+      el('p', { class: 'signature', text: soft ? `He is waiting, and he is not going anywhere. — ${config.guideName}` : fill(config.finalResponseMessage) }),
+      details ? el('p', { class: 'final-note', text: details }) : null,
+      config.memories.length
+        ? el('ul', { class: 'memory-list', 'aria-label': 'Whispered by the flowers' },
+          config.memories.map((memory) => el('li', { text: fill(memory) })))
+        : null,
+      el('div', { class: 'panel-actions' }, [
+        el('button', {
+          class: 'menu-button', type: 'button', text: 'Stay in the garden',
+          onClick: () => { game.audio.uiTap(); close('stay'); }
+        }),
+        el('button', {
+          class: 'menu-button quiet', type: 'button', text: 'Read it again',
+          onClick: () => { game.audio.uiTap(); close('again'); }
+        })
+      ]),
+      petalVeil(12)
+    ], { className: 'closing-frame', label: 'The end' }), { scrim: 'soft' })
+      .then(async (result) => {
       if (result === 'again') await this.#finalPages({ replay: true });
     });
   }
@@ -558,12 +605,12 @@ export class GardenScene extends WorldScene {
   drawFront(ctx, time) {
     // The three promise lights above the dais.
     for (let i = 0; i < this.promiseLights; i++) {
-      const x = DAIS.x + (i - 1) * 54;
-      const y = DAIS.y - 108 - Math.sin(time * 1.6 + i) * 5;
+      const x = DAIS.x + (i - 1) * 62;
+      const y = DAIS.y - 132 - Math.sin(time * 1.6 + i) * 6;
       const pulse = this.celebrating
         ? 0.6 + 0.4 * Math.sin(time * 3 - i * 1.6)
         : 0.6 + 0.25 * Math.sin(time * 1.6 + i * 1.2);
-      const radius = (this.celebrating ? 46 : 30) * pulse;
+      const radius = (this.celebrating ? 58 : 40) * pulse;
       const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
       glow.addColorStop(0, 'rgba(255,248,226,0.9)');
       glow.addColorStop(0.35, rgba(PALETTE.goldLight, 0.45));
@@ -574,8 +621,11 @@ export class GardenScene extends WorldScene {
       ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#fff8e2';
-      starPath(ctx, x, y, 7, 4, 0.3);
+      starPath(ctx, x, y, this.celebrating ? 11 : 8.5, 4, 0.3);
       ctx.fill();
+      ctx.strokeStyle = rgba(PALETTE.lavenderLight, 0.7);
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
     }
 
     // Three silver stars set into the dais, matching the doors elsewhere.
@@ -625,6 +675,21 @@ export class GardenScene extends WorldScene {
       ctx.restore();
     }
   }
+}
+
+/** A drift of lavender petals across an illustrated frame. */
+function petalVeil(count) {
+  const veil = el('div', { class: 'petal-veil', 'aria-hidden': 'true' });
+  for (let i = 0; i < count; i++) {
+    const left = Math.round((i / count) * 100 + (Math.random() * 8 - 4));
+    const duration = 7 + Math.random() * 7;
+    const delay = -Math.random() * duration;
+    const hue = i % 3 === 0 ? 'var(--c-lavender-light)' : i % 3 === 1 ? 'var(--c-lavender)' : 'var(--c-gold-light)';
+    veil.append(el('i', {
+      style: `left:${Math.max(0, Math.min(97, left))}%;animation-duration:${duration.toFixed(2)}s;animation-delay:${delay.toFixed(2)}s;background:${hue};`
+    }));
+  }
+  return veil;
 }
 
 /** Blank lines in the configured message become separate paragraphs. */

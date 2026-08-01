@@ -460,6 +460,11 @@ button {
   animation: fade-in 0.2s ease;
 }
 .overlay[data-clear='true'] { background: none; backdrop-filter: none; }
+/* The final frames sit over the garden rather than hiding it. */
+.overlay[data-scrim='soft'] {
+  background: radial-gradient(circle at 50% 45%, rgba(20, 14, 40, 0.3), rgba(8, 6, 20, 0.66));
+  backdrop-filter: blur(1.5px);
+}
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 .panel {
@@ -928,6 +933,140 @@ button {
   line-height: 1.4;
   color: color-mix(in srgb, var(--c-ink) 78%, var(--c-purple-deep));
 }
+
+/* --------------------------------------------------------------------------
+   Illustrated storybook frame — used for the moments that must not look
+   like a dialog box.
+   -------------------------------------------------------------------------- */
+
+.ornate {
+  position: relative;
+  width: min(620px, 100%);
+  max-height: 100%;
+  padding: 26px 20px 20px;
+  border-radius: 20px;
+  color: var(--c-ink);
+  background:
+    radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--c-lavender-light) 55%, transparent), transparent 62%),
+    radial-gradient(circle at 15% 8%, rgba(255,255,255,0.6), transparent 46%),
+    linear-gradient(178deg, color-mix(in srgb, var(--c-parchment) 99%, white), color-mix(in srgb, var(--c-parchment) 85%, #cdaa78));
+  border: 3px solid var(--panel-edge);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.35) inset,
+    0 0 70px color-mix(in srgb, var(--c-lavender) 40%, transparent),
+    0 18px 44px rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  animation: ornate-in 0.55s cubic-bezier(0.2, 0.85, 0.3, 1.05) both;
+}
+@keyframes ornate-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.975); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.frame-corner {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.frame-corner-tl { top: 5px; left: 5px; }
+.frame-corner-tr { top: 5px; right: 5px; transform: scaleX(-1); }
+.frame-corner-bl { bottom: 5px; left: 5px; transform: scaleY(-1); }
+.frame-corner-br { bottom: 5px; right: 5px; transform: scale(-1); }
+
+.three-stars {
+  display: block;
+  width: 108px;
+  margin: 0 auto 8px;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--c-lavender) 70%, transparent));
+}
+
+.ornate-inner { position: relative; text-align: center; }
+
+/* The question itself gets the most air in the project. */
+.final-heading {
+  margin: 0 0 14px;
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 5vw, 1.6rem);
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--c-ink) 78%, var(--c-purple-deep));
+}
+.ornate .final-message { margin-bottom: 10px; }
+.ornate .panel-actions { margin-top: 18px; }
+.question-actions { display: flex; flex-direction: column; margin-top: 4px; }
+
+.ornate.question-frame { padding: 30px 22px 24px; }
+.ornate.question-frame .final-question {
+  margin: 10px 0 22px;
+  color: color-mix(in srgb, var(--c-purple-deep) 58%, var(--c-rose));
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+}
+.ornate.question-frame .final-lead { margin-bottom: 4px; }
+
+/* Response buttons: warm, generous, unmistakably the moment. */
+.answer-yes,
+.answer-soft {
+  width: 100%;
+  min-height: 58px;
+  padding: 14px 20px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 4.3vw, 1.22rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 2px solid var(--panel-edge);
+  color: var(--c-ink);
+  transition: transform 0.12s ease, box-shadow 0.18s ease, background 0.2s ease;
+}
+.answer-yes {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c-gold-light) 92%, white), var(--c-gold));
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--c-lavender) 26%, transparent),
+    0 6px 0 color-mix(in srgb, var(--panel-edge) 75%, transparent),
+    0 0 30px color-mix(in srgb, var(--c-gold) 45%, transparent);
+}
+.answer-yes:hover { background: linear-gradient(180deg, #fff3d8, var(--c-gold-light)); }
+.answer-yes:active { transform: translateY(4px); box-shadow: 0 0 0 5px color-mix(in srgb, var(--c-lavender) 26%, transparent), 0 2px 0 color-mix(in srgb, var(--panel-edge) 75%, transparent); }
+.answer-soft {
+  margin-top: 10px;
+  background: color-mix(in srgb, var(--c-lavender) 20%, var(--c-parchment));
+  border-color: color-mix(in srgb, var(--c-lavender-deep) 60%, transparent);
+  font-size: clamp(0.95rem, 3.8vw, 1.05rem);
+  font-weight: 600;
+}
+.answer-soft:hover { background: color-mix(in srgb, var(--c-lavender) 34%, var(--c-parchment)); }
+.answer-soft:active { transform: scale(0.985); }
+
+/* Petals drifting over the final frames. */
+.petal-veil {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.petal-veil i {
+  position: absolute;
+  top: -12px;
+  width: 7px;
+  height: 4.5px;
+  border-radius: 60% 40% 60% 40%;
+  background: var(--c-lavender);
+  opacity: 0;
+  filter: blur(0.3px);
+  animation: petal-fall linear infinite;
+}
+@keyframes petal-fall {
+  0% { transform: translateY(-16px) rotate(0deg); opacity: 0; }
+  12% { opacity: 0.42; }
+  100% { transform: translateY(460px) rotate(320deg); opacity: 0; }
+}
+html[data-reduced-motion='true'] .petal-veil { display: none; }
+@media (prefers-reduced-motion: reduce) { .petal-veil { display: none; } }
 
 .fade-up { animation: fade-up 0.6s ease both; }
 @keyframes fade-up {
