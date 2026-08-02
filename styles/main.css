@@ -1,5 +1,5 @@
 /* ==========================================================================
-   The Unwritten Page — interface styling
+   The Unwritten Page: interface styling
 
    The world itself is drawn on <canvas>; everything here is the storybook
    furniture around it. Built phone-first: every panel fits a 320px screen,
@@ -174,18 +174,42 @@ button {
   right: calc(10px + var(--safe-right));
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
   pointer-events: none;
   z-index: 20;
 }
 .hud > *, .hud button { pointer-events: auto; }
 
+/*
+ * The chapter title is centred on the play area itself, not on the gap the
+ * buttons leave over. --hud-gutter is measured at runtime (see Interface
+ * #trackHudGutter) and matches the wider of the two button groups, so the
+ * title is exactly centred and cannot reach either of them. The HUD sits
+ * inside the safe-area insets, so a notch or a rounded corner never clips it.
+ */
 .hud-centre {
-  flex: 1 1 auto;
-  min-width: 0;
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: calc(100% - var(--hud-gutter, 150px) * 2);
   text-align: center;
   pointer-events: none;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+
+/* Too narrow for a title between the buttons: give it its own centred line. */
+.hud[data-stacked='true'] {
+  flex-wrap: wrap;
+  padding-bottom: 2px;
+}
+.hud[data-stacked='true'] .hud-centre {
+  position: static;
+  transform: none;
+  width: 100%;
+  order: 3;
+  margin-top: 2px;
 }
 
 .chapter-label {
@@ -940,7 +964,7 @@ button {
 }
 
 /* --------------------------------------------------------------------------
-   Illustrated storybook frame — used for the moments that must not look
+   Illustrated storybook frame, used for the moments that must not look
    like a dialog box.
    -------------------------------------------------------------------------- */
 
@@ -1135,7 +1159,7 @@ html[data-reduced-motion='true'] .petal-veil { display: none; }
 }
 .caption[data-visible='true'] { opacity: 1; }
 
-/* Sits under the HUD, never over the dialogue box — a suggestion should not
+/* Sits under the HUD, never over the dialogue box, a suggestion should not
    be able to swallow a tap meant for the story. */
 .rotate-hint {
   position: absolute;
@@ -1234,7 +1258,7 @@ html[data-reduced-motion='true'] .petal-veil { display: none; }
   .dialogue-text { max-width: none; }
 }
 
-/* Narrow phones — 320 to 400 CSS pixels. */
+/* Narrow phones: 320 to 400 CSS pixels. */
 @media (max-width: 400px) {
   .dialogue { gap: 9px; padding: 11px 12px 11px 10px; }
   .dialogue-portrait { width: 60px; height: 60px; }

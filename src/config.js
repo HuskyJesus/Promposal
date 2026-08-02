@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- *  THE UNWRITTEN PAGE — PERSONALISATION FILE
+ *  THE UNWRITTEN PAGE: PERSONALISATION FILE
  * ============================================================================
  *
  *  This is the ONLY file you need to edit to make the game your own.
@@ -42,7 +42,7 @@ From Theo and our three kisses, to letting rock-paper-scissors make our decision
 
 You are my lovey, my best friend, and my favorite freak.
 
-I love you to the neighbor of our personal star and back at least twice—or as many times as it takes.`,
+I love you to the neighbor of our personal star and back at least twice, or as many times as it takes.`,
 
   /** The line that introduces the question. */
   finalLeadIn: 'Every fairytale needs one unforgettable night…',
@@ -51,7 +51,7 @@ I love you to the neighbor of our personal star and back at least twice—or as 
   finalQuestion: 'Lovey, will you go to prom with me?',
 
   /** Shown after she says yes. */
-  finalResponseMessage: 'I love you, lovey. — Caius',
+  finalResponseMessage: 'I love you, lovey. Always, Caius',
 
   /** The two response buttons. Both are kind; neither one runs away. */
   responseYesLabel: 'Yes, of course!',
@@ -91,15 +91,15 @@ I love you to the neighbor of our personal star and back at least twice—or as 
    * ------------------------------------------------------------------ */
 
   colors: {
-    /** Deep night sky — the base tone of the whole game. */
+    /** Deep night sky: the base tone of the whole game. */
     night: '#161228',
     /** Warm parchment used for panels and dialogue. */
     parchment: '#f6e7c8',
     /** Ink used for text on parchment. */
     ink: '#2f2338',
-    /** Lantern gold — highlights, borders, and sparkles. */
+    /** Lantern gold: highlights, borders, and sparkles. */
     gold: '#e9b45f',
-    /** Romantic rose — hearts, blossoms, the final page. */
+    /** Romantic rose: hearts, blossoms, the final page. */
     rose: '#d98a9a',
     /** Deep forest green. */
     forest: '#2c5a4c',

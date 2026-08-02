@@ -123,7 +123,7 @@ export class Renderer {
    *
    * `overscanBottom` lets the view slip that far past the bottom edge. It is
    * only ever passed the height of the dialogue box, so the strip of nothing
-   * it exposes is the strip the box is already covering — that is what lets
+   * it exposes is the strip the box is already covering, that is what lets
    * the heroine stay above the words even where she stands at the world's edge.
    */
   followCamera(targetX, targetY, world, lerp = 1, overscanBottom = 0) {

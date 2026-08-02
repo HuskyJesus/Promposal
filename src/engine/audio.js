@@ -4,7 +4,7 @@
  *
  * The context is created lazily on the first real user gesture so that browser
  * autoplay rules are respected, and the whole game stays playable with sound
- * switched off — callers never need to check, they just call.
+ * switched off, callers never need to check, they just call.
  */
 
 /** Semitone offsets of a warm major-pentatonic scale, used by most cues. */
@@ -351,7 +351,7 @@ export class AudioEngine {
   }
 
   gentleNo() {
-    this.onCaption('A soft, patient chime — not quite right');
+    this.onCaption('A soft, patient chime, not quite right');
     if (!this.enabled) return;
     const t = this.#now();
     this.#voice({ freq: midiToFreq(65), time: t, duration: 0.34, type: 'sine', peak: 0.14 });

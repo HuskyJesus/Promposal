@@ -130,7 +130,7 @@ export class TitleScene {
         }));
       }
 
-      return el('div', { class: 'panel title-panel', role: 'dialog', 'aria-label': `${config.gameTitle} — main menu` }, [
+      return el('div', { class: 'panel title-panel', role: 'dialog', 'aria-label': `${config.gameTitle}, main menu` }, [
         titleMark(),
         el('h1', { class: 'game-title', text: config.gameTitle }),
         el('p', { class: 'game-subtitle', text: config.gameSubtitle }),

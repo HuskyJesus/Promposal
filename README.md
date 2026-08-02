@@ -1,7 +1,7 @@
 # The Unwritten Page
 
 A cozy, hand-drawn fairytale adventure about finishing a story that lost its
-final page. Roughly 10–15 minutes long, built for phones first and desktops
+final page. Roughly 10 to 15 minutes long, built for phones first and desktops
 second.
 
 **Play it:** https://huskyjesus.github.io/Promposal/
@@ -15,7 +15,7 @@ self-important blue bear called Theo, gather three lost fragments of a story,
 and finish writing its last page.
 
 It is built from nothing but HTML, CSS and vanilla JavaScript modules. There is
-**no build step, no framework, no backend, and not a single image file** — every
+**no build step, no framework, no backend, and not a single image file**: every
 tree, character, lantern, mushroom and star is drawn at runtime with the Canvas
 2D API or inline SVG, and all of the music and sound is synthesised on the fly
 with the Web Audio API.
@@ -69,7 +69,7 @@ every wrong mural panel, exhausting every hint, replaying the ending three
 times, resetting a finished game, and loading saves written by an older build
 or naming a chapter that no longer exists. It finishes by loading the page
 exactly as a player would and checking that the shipped build exposes nothing
-at all — no test seam, no globals, and no query string that unlocks anything.
+at all, no test seam, no globals, and no query string that unlocks anything.
 
 The game itself contains no test-only code. The browser suites need to read
 game state, so Playwright appends a single line to `src/main.js` as it is
@@ -78,11 +78,11 @@ the last section of the resilience suite runs uninstrumented to prove it.
 
 ## Controls
 
-* **Move** — arrow keys or `W A S D`; on a phone, hold and drag anywhere on the
+* **Move**: arrow keys or `W A S D`; on a phone, hold and drag anywhere on the
   left half of the screen.
-* **Interact** — `Space`, `Enter`, `E`, or the round button at the bottom right.
-* **Menu / pause** — `Escape` or the button at the top left.
-* **Hint** — the lamp button at the top right. Ask more than once and Theo gets
+* **Interact**: `Space`, `Enter`, `E`, or the round button at the bottom right.
+* **Menu / pause**: `Escape` or the button at the top left.
+* **Hint**: the lamp button at the top right. Ask more than once and Theo gets
   progressively less mysterious.
 
 ## Accessibility
@@ -90,7 +90,7 @@ the last section of the resilience suite runs uninstrumented to prove it.
 * Every menu, puzzle and dialogue choice is a real focusable button, reachable
   by keyboard and labelled for screen readers.
 * No puzzle needs dragging, precise timing or fast reflexes.
-* Nothing is communicated by colour alone — fragments, matched panels and
+* Nothing is communicated by colour alone, fragments, matched panels and
   puzzle feedback all carry a symbol or a label as well.
 * A reduced-motion option (which also follows your system setting) removes the
   page-turn animation, the typewriter effect and the sweeping camera moves.

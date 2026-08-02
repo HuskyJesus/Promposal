@@ -1,5 +1,5 @@
 /**
- * Chapter three — The Monochrome Hall.
+ * Chapter three, The Monochrome Hall.
  *
  * A long gallery that lost its colour: black and white tiles, silver frames,
  * mirrored silhouettes, and one stubbornly blue bear. Joining the halves of
@@ -10,7 +10,7 @@
 import { WorldScene } from '../engine/worldScene.js';
 import { createBuffer } from '../engine/renderer.js';
 import {
-  paintNightSky, drawPersonalStar, drawMoon, drawArch, drawThreeStars, drawLantern,
+  paintNightSky, drawPersonalStar, drawMoon, drawArch, drawLantern,
   drawFlowerCluster, drawLightPool, paintMist, makeSprite, makeRandom, rgba, starPath, mix
 } from '../engine/art.js';
 import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
@@ -262,7 +262,7 @@ export class HallScene extends WorldScene {
         ctx.stroke();
       }
 
-      // Flowers along the walls — grey until the mural is whole.
+      // Flowers along the walls, grey until the mural is whole.
       const random = makeRandom(404);
       for (let i = 0; i < 26; i++) {
         const left = random() < 0.5;
@@ -328,8 +328,8 @@ export class HallScene extends WorldScene {
         const open = this.game.save.hasFlag('hallComplete');
         drawArch(ctx, SPOTS.doors.x, SPOTS.doors.y + 10, 1.3,
           { stoneDark: '#6a6474', doorway: open ? '#241d33' : '#17141f' },
-          open ? rgba('#ffe0a0', 0.35) : null);
-        drawThreeStars(ctx, SPOTS.doors.x, SPOTS.doors.y - 128, 1, '#dde5f2', [open, open, open], time);
+          open ? rgba('#ffe0a0', 0.35) : null,
+          { lit: [open, open, open], time });
       }
     });
   }
@@ -390,7 +390,7 @@ export class HallScene extends WorldScene {
   #theoChat() {
     const save = this.game.save;
     if (save.hasFlag('hallComplete')) return HALL.toGarden;
-    if (!save.hasFlag('muralComplete')) return [{ who: 'theo', text: 'The mural first. Dark half, light half — every panel is missing its opposite, and the wall is quietly furious about it.' }];
+    if (!save.hasFlag('muralComplete')) return [{ who: 'theo', text: 'The mural first. Dark half, light half. Every panel is missing its opposite, and the wall is quietly furious about it.' }];
     return [{ who: 'theo', mood: 'proud', text: 'Now the frame at the end of the hall. Three questions. It thinks it is going to be difficult. It is about to be disappointed.' }];
   }
 

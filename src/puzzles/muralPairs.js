@@ -3,7 +3,7 @@
  *
  * The hall's great mural was split down the middle long ago. Every panel on
  * the dark half has an opposite on the light half; joining all four brings the
- * picture — and its colour — back.
+ * picture, and its colour, back.
  *
  * Pure logic, tested separately from the interface.
  */
@@ -22,7 +22,7 @@ export const MURAL_PAIRS = [
   {
     id: 'light',
     dark: { id: 'shadow', label: 'A long shadow across the floor', icon: 'shadow' },
-    light: { id: 'lantern', label: 'The lantern that casts it', icon: 'lantern' },
+    light: { id: 'lantern', label: 'A lantern throwing light across the floor', icon: 'lantern' },
     joined: 'No shadow without a light standing somewhere behind it.'
   },
   {
@@ -39,12 +39,25 @@ export const MURAL_PAIRS = [
   }
 ];
 
+/*
+ * The two halves are hung in deliberately different orders. Listing both sides
+ * in the order they are authored would put every answer directly opposite its
+ * own row, and the puzzle would solve itself by position without anybody
+ * reading a panel. These two orders are a derangement of one another: no pair
+ * shares a row, and the arrangement is fixed, so nothing shuffles underneath
+ * her while she is halfway through solving it.
+ */
+const DARK_ORDER = ['light', 'bloom', 'sky', 'story'];
+const LIGHT_ORDER = ['sky', 'story', 'bloom', 'light'];
+
+const byId = (id) => MURAL_PAIRS.find((pair) => pair.id === id);
+
 export function darkPanels() {
-  return MURAL_PAIRS.map((pair) => ({ ...pair.dark, pairId: pair.id }));
+  return DARK_ORDER.map((id) => ({ ...byId(id).dark, pairId: id }));
 }
 
 export function lightPanels() {
-  return MURAL_PAIRS.map((pair) => ({ ...pair.light, pairId: pair.id }));
+  return LIGHT_ORDER.map((id) => ({ ...byId(id).light, pairId: id }));
 }
 
 export function createMuralState() {

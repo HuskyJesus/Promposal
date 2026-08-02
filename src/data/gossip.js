@@ -1,5 +1,5 @@
 /**
- * Optional conversations. None of these are required to finish the story —
+ * Optional conversations. None of these are required to finish the story;
  * they exist because the kingdom is very small and everyone in it talks.
  *
  * A few of them quietly contain the answers to the Storykeeper's Trial.
@@ -24,14 +24,14 @@ export const GOSSIP = {
     id: 'flowers',
     name: 'Two arguing blossoms',
     lines: [
-      { who: 'flowers', text: '— all I am saying is that they are never in the sky at the same time, and that means something.' },
-      { who: 'flowers', text: '— it means nothing! They work different shifts! Not everything is romantic!' },
-      { who: 'flowers', text: '— she waits for him at dusk. Every single evening. Explain that.' },
+      { who: 'flowers', text: '...all I am saying is that they are never in the sky at the same time, and that means something.' },
+      { who: 'flowers', text: '...it means nothing! They work different shifts! Not everything is romantic!' },
+      { who: 'flowers', text: '...she waits for him at dusk. Every single evening. Explain that.' },
       { who: 'theo', mood: 'happy', text: 'They have been having this argument since before the castle was built. Neither of them is going to win. Both of them are enjoying it enormously.' }
     ],
     repeat: [
-      { who: 'flowers', text: '— dusk! Every evening! I rest my case!' },
-      { who: 'flowers', text: '— you have never once rested your case.' }
+      { who: 'flowers', text: '...dusk! Every evening! I rest my case!' },
+      { who: 'flowers', text: '...you have never once rested your case.' }
     ]
   },
 
@@ -54,7 +54,7 @@ export const GOSSIP = {
     id: 'hallPortraitLeft',
     name: 'A painted lady',
     lines: [
-      { who: 'portrait', mood: 'dark', text: 'Two hundred years I have hung on this wall with a scalloped gold frame, and then SHE arrives with — well. Look at it.' },
+      { who: 'portrait', mood: 'dark', text: 'Two hundred years I have hung on this wall with a scalloped gold frame, and then SHE arrives with, well. Look at it.' },
       { who: 'portrait', mood: 'dark', text: 'I am not saying she copied me. I am simply laying out the timeline and letting you draw your own conclusion.' },
       { who: 'theo', mood: 'sly', text: 'This has been going on for eleven decades. I bring snacks.' }
     ],

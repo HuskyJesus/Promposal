@@ -112,8 +112,8 @@ export class WorldScene {
 
   /**
    * Scatters grass that leans in the breeze across the walkable area. `avoid`
-   * takes a list of ellipses ({x, y, rx, ry}) that nothing may grow inside —
-   * ponds, flower beds, paving — so planting never sprouts through a solid.
+   * takes a list of ellipses ({x, y, rx, ry}) that nothing may grow inside:
+   * ponds, flower beds and paving, so planting never sprouts through a solid.
    */
   seedTufts({ count, bounds, colors, blooms = [], seed = 12, avoid = [] }) {
     const random = makeRandom(seed);

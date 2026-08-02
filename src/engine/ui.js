@@ -114,6 +114,43 @@ export class UI {
       this.touchControls.dataset.stowed = String(talking);
     };
     this.#buildFragmentTrack();
+    this.#trackHudGutter();
+  }
+
+  /**
+   * Keeps the chapter title centred in the play area rather than centred in
+   * whatever space the buttons happen to leave over.
+   *
+   * The menu button on the left and the fragment track plus hint button on the
+   * right are different widths, so a flex row puts the title off centre. The
+   * title is absolutely centred instead, and this measures the wider of the two
+   * groups so it can be given a matching gutter on both sides and never run
+   * underneath either. When the phone is too narrow for that to leave room for
+   * words, the title drops to its own line below the buttons, still centred.
+   */
+  #trackHudGutter() {
+    const hudRoot = document.documentElement;
+    const measure = () => {
+      const left = this.menuButton.offsetWidth;
+      const right = this.hud.querySelector('.hud-right')?.offsetWidth ?? 0;
+      const gutter = Math.max(left, right) + 10;
+      hudRoot.style.setProperty('--hud-gutter', `${Math.round(gutter)}px`);
+      const room = this.hud.clientWidth - gutter * 2;
+      this.hud.dataset.stacked = String(room < 150);
+    };
+
+    measure();
+    if (typeof ResizeObserver === 'function') {
+      this.hudObserver = new ResizeObserver(measure);
+      this.hudObserver.observe(this.hud);
+      this.hudObserver.observe(this.menuButton);
+      const right = this.hud.querySelector('.hud-right');
+      if (right) this.hudObserver.observe(right);
+    } else {
+      // Older Safari: remeasure on the events that can change the layout.
+      window.addEventListener('resize', measure);
+      window.addEventListener('orientationchange', () => setTimeout(measure, 120));
+    }
   }
 
   #buildFragmentTrack() {

@@ -1,7 +1,7 @@
 name: Tests
 
 # GitHub Pages publishes this repository straight from the main branch, so
-# there is nothing to build or upload here — the repository root is already
+# there is nothing to build or upload here, the repository root is already
 # the finished site. This workflow guards it: every push runs the puzzle and
 # saved-progress tests before the change goes live.
 on:

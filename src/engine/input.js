@@ -136,7 +136,7 @@ export class Input {
   /**
    * A short tap on the world (rather than a drag on the stick) is offered to
    * the scene, so tapping the thing in front of her also works. The action
-   * button remains the reliable path — this never replaces it.
+   * button remains the reliable path, this never replaces it.
    */
   #bindStageTap() {
     const surface = document.getElementById('app');

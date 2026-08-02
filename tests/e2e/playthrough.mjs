@@ -10,7 +10,7 @@
  *
  * The shipped game exposes no test seam. Playwright appends one to
  * `src/main.js` in flight (see instrument.mjs) so the suite can read game
- * state and place the heroine in front of a given interactable — walking her
+ * state and place the heroine in front of a given interactable, walking her
  * across the map with timed key presses would make the suite flaky without
  * testing anything more.
  */
@@ -27,11 +27,32 @@ let failures = 0;
 function check(name, condition, detail = '') {
   const ok = Boolean(condition);
   if (!ok) failures += 1;
-  checks.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail && !ok ? ` — ${detail}` : ''}`);
-  console.log(`${ok ? '  ok' : 'FAIL'}  ${name}${detail && !ok ? ` — ${detail}` : ''}`);
+  checks.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail && !ok ? `: ${detail}` : ''}`);
+  console.log(`${ok ? '  ok' : 'FAIL'}  ${name}${detail && !ok ? `: ${detail}` : ''}`);
 }
 
 const browser = await chromium.launch(CHROME ? { executablePath: CHROME } : {});
+
+/**
+ * The two halves of the mural are deliberately hung in different orders, so a
+ * test cannot join row N to row N. These read the real pairing out of the game
+ * and then click the panels by the words printed on them, exactly as a person
+ * reading the wall would.
+ */
+async function muralPairing(p) {
+  return p.evaluate(async () => {
+    const mod = await import(new URL('src/puzzles/muralPairs.js', document.baseURI).href);
+    return mod.MURAL_PAIRS.map((pair) => ({ dark: pair.dark.label, light: pair.light.label }));
+  });
+}
+
+async function joinMural(p, dark, light, settle = 380) {
+  await p.locator('#overlay .mural-tile[data-side="dark"]', { hasText: dark }).click();
+  await p.waitForTimeout(140);
+  await p.locator('#overlay .mural-tile[data-side="light"]', { hasText: light }).click();
+  await p.waitForTimeout(settle);
+}
+
 
 /* -------------------------------------------------------------------------
    Helpers
@@ -120,7 +141,7 @@ page.on('pageerror', (e) => errors.push(`${e.message}`));
 
 const h = makeHelpers(page);
 
-console.log('\n— Title screen —');
+console.log('\n[ Title screen ]');
 await instrument(page);
 await page.goto(`${BASE}`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
@@ -144,14 +165,14 @@ await soundButton.click();
 await page.waitForTimeout(150);
 check('the sound toggle turns sound back on', (await h.state()).settings.sound === true);
 
-console.log('\n— Prologue —');
+console.log('\n[ Prologue ]');
 await h.clickPanel('Start the story');
 for (let i = 0; i < 3; i++) await h.clickPanel('Turn the page');
 await page.locator('#dialogue').waitFor({ state: 'visible', timeout: 15000 });
 check('the woods load after the prologue', (await h.state()).scene === 'woods');
 check('the HUD appears once play starts', await page.locator('#hud').isVisible());
 
-console.log('\n— Chapter one: the Whispering Woods —');
+console.log('\n[ Chapter one: the Whispering Woods ]');
 await h.clearDialogue();
 
 for (const id of ['signpost', 'starGap', 'lanterns', 'frog', 'flowers', 'bird', 'theo']) {
@@ -201,7 +222,7 @@ await page.waitForTimeout(1800);
 await h.clearDialogue();
 check('chapter two loads', (await h.state()).scene === 'cottage');
 
-console.log('\n— Chapter two: the Enchanted Cottage —');
+console.log('\n[ Chapter two: the Enchanted Cottage ]');
 for (const id of ['kettle', 'shelf', 'journal', 'portrait']) {
   await h.interact(id);
   await h.clearDialogue();
@@ -258,7 +279,7 @@ await page.waitForTimeout(1800);
 await h.clearDialogue();
 check('chapter three loads', (await h.state()).scene === 'hall');
 
-console.log('\n— Chapter three: the Monochrome Hall —');
+console.log('\n[ Chapter three: the Monochrome Hall ]');
 for (const id of ['portraitLeft', 'portraitRight', 'window']) {
   await h.interact(id);
   await h.clearDialogue();
@@ -276,22 +297,26 @@ await h.interact('mural');
 await h.pump(async () => (await page.locator('#overlay .mural-board').count()) > 0, { seconds: 25 });
 check('the mural puzzle opens', (await page.locator('#overlay .mural-board').count()) > 0);
 
+const pairs = await muralPairing(page);
+
+// The halves must not be hung so that row N answers row N.
+const darkOrder = await page.locator('#overlay .mural-tile[data-side="dark"]').allInnerTexts();
+const lightOrder = await page.locator('#overlay .mural-tile[data-side="light"]').allInnerTexts();
+const alignedRows = darkOrder.filter((dark, i) => {
+  const pair = pairs.find((x) => dark.includes(x.dark));
+  return pair && (lightOrder[i] || '').includes(pair.light);
+});
+check('no panel is hung directly opposite its own answer', alignedRows.length === 0,
+  alignedRows.join(' / '));
+
 // A deliberate mismatch must be rejected and explained.
-await page.locator('#overlay .mural-tile[data-side="dark"]').nth(0).click();
-await page.waitForTimeout(160);
-await page.locator('#overlay .mural-tile[data-side="light"]').nth(1).click();
-await page.waitForTimeout(300);
+await joinMural(page, pairs[0].dark, pairs[1].light, 300);
 check('a mismatched pair is refused',
   (await page.locator('#overlay .mural-tile[data-matched="true"]').count()) === 0);
 check('a mismatched pair is explained',
   (await page.locator('#overlay .puzzle-feedback').innerText()).includes('not two halves'));
 
-for (let i = 0; i < 4; i++) {
-  await page.locator('#overlay .mural-tile[data-side="dark"]:not([data-matched="true"])').first().click();
-  await page.waitForTimeout(140);
-  await page.locator('#overlay .mural-tile[data-side="light"]').nth(i).click();
-  await page.waitForTimeout(420);
-}
+for (const pair of pairs) await joinMural(page, pair.dark, pair.light, 420);
 await h.pump(async () => (await page.locator('#overlay .mural-board').count()) === 0, { seconds: 20 });
 await h.clearDialogue();
 check('the mural is recorded as complete', (await h.state()).progress.flags.muralComplete === true);
@@ -300,10 +325,26 @@ check('colour returns to the hall',
 
 await h.interact('storykeeper');
 await h.pump(async () => (await page.locator('#overlay .answer-list').count()) > 0, { seconds: 25 });
-const ANSWERS = ['Three', "prince's horse", 'Shears'];
-for (let q = 0; q < 3; q++) {
+// The answers are read out of the game rather than written down here, so the
+// trial can be rewritten without quietly invalidating this run.
+const trivia = await page.evaluate(async () => {
+  const mod = await import(new URL('src/puzzles/storykeeperTrial.js', document.baseURI).href);
+  return mod.QUESTIONS.map((q) => ({
+    prompt: q.prompt,
+    correct: q.answers.find((a) => a.id === q.correct).text,
+    options: q.answers.length
+  }));
+});
+check('the trial still asks three questions', trivia.length === 3, String(trivia.length));
+check('no question is a straight two-way guess',
+  trivia.every((q) => q.options >= 3), trivia.map((q) => q.options).join(','));
+
+for (let q = 0; q < trivia.length; q++) {
   await page.locator('#overlay .trivia-question').waitFor({ timeout: 10000 });
-  await page.locator('#overlay .answer-button', { hasText: ANSWERS[q] }).first().click();
+  const prompt = await page.locator('#overlay .trivia-question').innerText();
+  const asked = trivia.find((t) => t.prompt === prompt);
+  check(`question ${q + 1} is one the game actually defines`, Boolean(asked), prompt);
+  await page.locator('#overlay .answer-button', { hasText: asked.correct }).first().click();
   await page.waitForTimeout(1700);
 }
 await h.pump(h.panelHas('Take the final fragment'), { seconds: 30 });
@@ -319,7 +360,7 @@ await page.waitForTimeout(1800);
 await h.clearDialogue();
 check('the garden loads', (await h.state()).scene === 'garden');
 
-console.log('\n— The Garden Beyond the Stars —');
+console.log('\n[ The Garden Beyond the Stars ]');
 await h.interact('lantern-2');
 await h.clearDialogue();
 check('the lanterns refuse to be lit out of order',
@@ -360,7 +401,7 @@ await h.clickPanel('Stay in the garden');
 await page.waitForTimeout(400);
 check('play resumes after the ending', await page.locator('#overlay').isHidden());
 
-console.log('\n— Menu, settings and reset —');
+console.log('\n[ Menu, settings and reset ]');
 await page.locator('#menu-button').click();
 await page.waitForTimeout(350);
 check('the menu opens', await page.locator('#overlay').isVisible());
@@ -409,7 +450,7 @@ await page.close();
    Continuing from a saved game, in every chapter
    ------------------------------------------------------------------------- */
 
-console.log('\n— Continue from each chapter —');
+console.log('\n[ Continue from each chapter ]');
 const SAVED_GAMES = [
   ['woods', { chapter: 'woods', fragments: [], moonflowers: ['stream'], flags: { metTheo: true } }],
   ['cottage', { chapter: 'cottage', fragments: ['woods'], flags: { metTheo: true, woodsComplete: true, cottageArrived: true } }],
@@ -457,7 +498,7 @@ for (const [chapter, saved] of SAVED_GAMES) {
    Recovering from a badly timed refresh
    ------------------------------------------------------------------------- */
 
-console.log('\n— Interrupted mid-ceremony —');
+console.log('\n[ Interrupted mid-ceremony ]');
 const INTERRUPTED = [
   ['woods, closed after the last moonflower', 'woodsComplete', {
     chapter: 'woods', fragments: [], moonflowers: ['stream', 'stones', 'hollow'],
@@ -501,7 +542,7 @@ for (const [name, expectedFlag, saved] of INTERRUPTED) {
    Mobile behaviour
    ------------------------------------------------------------------------- */
 
-console.log('\n— Mobile behaviour —');
+console.log('\n[ Mobile behaviour ]');
 {
   const p = await browser.newPage({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true
@@ -640,7 +681,7 @@ console.log('\n— Mobile behaviour —');
    Accessibility
    ------------------------------------------------------------------------- */
 
-console.log('\n— Accessibility —');
+console.log('\n[ Accessibility ]');
 {
   const p = await browser.newPage({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 2 });
   const a11yErrors = [];
@@ -719,7 +760,7 @@ console.log('\n— Accessibility —');
    Reduced motion
    ------------------------------------------------------------------------- */
 
-console.log('\n— Reduced motion —');
+console.log('\n[ Reduced motion ]');
 {
   const p = await browser.newPage({
     viewport: { width: 844, height: 390 },
@@ -754,7 +795,7 @@ console.log('\n— Reduced motion —');
    Portrait layout pass
    ------------------------------------------------------------------------- */
 
-console.log('\n— Portrait layout —');
+console.log('\n[ Portrait layout ]');
 for (const [name, viewport] of [
   ['320x568 portrait', { width: 320, height: 568 }],
   ['375x667 portrait', { width: 375, height: 667 }],
@@ -800,7 +841,7 @@ for (const [name, viewport] of [
   await p.close();
 }
 
-console.log('\n— Personalisation —');
+console.log('\n[ Personalisation ]');
 await collectTokenLeaks(page);
 check('no unexpanded {token} ever reached the screen', tokenLeaks().length === 0, tokenLeaks().join(' | '));
 

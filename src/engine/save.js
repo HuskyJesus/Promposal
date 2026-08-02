@@ -49,7 +49,7 @@ function readJSON(key, fallbackFactory) {
     if (!parsed || typeof parsed !== 'object') return fallbackFactory();
     return { ...fallbackFactory(), ...parsed };
   } catch {
-    // Private browsing, disabled storage, or corrupt data — play unsaved.
+    // Private browsing, disabled storage, or corrupt data, play unsaved.
     return fallbackFactory();
   }
 }

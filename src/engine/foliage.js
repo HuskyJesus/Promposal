@@ -2,7 +2,7 @@
  * Woodland composition.
  *
  * Two jobs: caching a small set of tree sprites so a forest costs almost
- * nothing to draw, and placing them so a scene reads as a *place* — a wall of
+ * nothing to draw, and placing them so a scene reads as a *place*: a wall of
  * trees around the edge, a few stands inside, and clearings that make it
  * obvious where the player can walk.
  */
@@ -22,8 +22,8 @@ const SPECIES_BOX = {
 const SPECIES_MIX = ['oak', 'oak', 'oak', 'pine', 'pine', 'birch', 'birch', 'willow', 'shrub', 'shrub'];
 
 /**
- * Pre-renders a spread of trees — several sizes of each silhouette, each with
- * its own colour drift — so scenes can blit them instead of redrawing paths.
+ * Pre-renders a spread of trees, several sizes of each silhouette, each with
+ * its own colour drift, so scenes can blit them instead of redrawing paths.
  */
 export function buildTreeSprites(palette, seed = 1) {
   const random = makeRandom(seed);

@@ -1,7 +1,7 @@
 /**
  * Chapter two: the Trial of Stone, Scroll and Shears.
  *
- * The kingdom settles every important question — including supper — with three
+ * The kingdom settles every important question, including supper, with three
  * symbols. Each guardian tells you one rule before the trial begins, so the
  * whole puzzle is solvable from what you have been told. Nothing here is
  * random: the guardians raise the same symbols in the same order every time.
@@ -105,14 +105,14 @@ export function feedbackForWrongChoice(guardianSymbol, choice) {
     return `Two ${chosenName}s, matched exactly. The guardian is amused, but nobody has won anything. Which symbol defeats ${guardianName}?`;
   }
   if (beats(guardianSymbol, choice)) {
-    return `${guardianName} defeats ${chosenName} — that is the rule you were told. Try the symbol that beats ${guardianName} instead.`;
+    return `${guardianName} defeats ${chosenName}. That is the rule you were told. Try the symbol that beats ${guardianName} instead.`;
   }
   return `${chosenName} and ${guardianName} simply stare at one another. Neither one wins. Which symbol did the guardians say defeats ${guardianName}?`;
 }
 
 /**
  * Escalating hints. Level 1 nudges, level 2 restates the rule, level 3 gives
- * the answer outright — nobody should ever be stuck here.
+ * the answer outright. Nobody should ever be stuck here.
  */
 export function hintForRound(state, level) {
   const round = currentRound(state);

@@ -1,5 +1,5 @@
 /**
- * Chapter two — The Enchanted Cottage.
+ * Chapter two, The Enchanted Cottage.
  *
  * A small garden in front of a cottage with a crooked chimney. Three guardians
  * wait on the lawn, each willing to explain exactly how to beat them, and the
@@ -11,7 +11,7 @@ import { createBuffer } from '../engine/renderer.js';
 import {
   paintGround, paintNightSky, paintStonePath, drawCottage, drawFlowerCluster,
   drawMushroom, drawFern, drawLantern, drawLampPost, drawMoon, drawPersonalStar,
-  drawArch, drawThreeStars, drawVine, paintMist, drawLightPool,
+  drawArch, drawVine, paintMist, drawLightPool,
   makeRandom, makeSprite, rgba, starPath
 } from '../engine/art.js';
 import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
@@ -420,8 +420,8 @@ export class CottageScene extends WorldScene {
         const open = this.game.save.hasFlag('cottageComplete');
         drawArch(ctx, SPOTS.exit.x, SPOTS.exit.y + 10, 1.2,
           { stoneDark: '#5c5566', doorway: open ? '#2a1f36' : '#1a1626' },
-          open ? rgba('#e9b45f', 0.3) : null);
-        drawThreeStars(ctx, SPOTS.exit.x, SPOTS.exit.y - 118, 0.9, '#dde5f2', [open, open, open], time);
+          open ? rgba('#e9b45f', 0.3) : null,
+          { lit: [open, open, open], time });
       }
     });
   }

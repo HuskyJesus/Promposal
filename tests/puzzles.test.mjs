@@ -23,6 +23,8 @@ import {
   answerQuestion, hintForQuestion, wasFlawless
 } from '../src/puzzles/storykeeperTrial.js';
 
+import { GOSSIP } from '../src/data/gossip.js';
+
 /* ------------------------------------------------------------------------ */
 
 test('guardian trial: the three rules form a complete cycle', () => {
@@ -208,10 +210,84 @@ test('storykeeper: the strongest hint quotes the correct answer', () => {
   }
 });
 
-test('storykeeper: the trivia answers agree with the rest of the game', () => {
-  // Question three asks which symbol defeats the Scroll; the cottage puzzle
-  // must give the same answer, or the hall would be lying.
-  const question = QUESTIONS.find((q) => q.id === 'trial');
+test('storykeeper: the guardian question agrees with the cottage puzzle', () => {
+  // It asks which guardian wins by covering its opponent beyond recognition.
+  // That is whatever the cottage rules say defeats Stone, or the hall is lying.
+  const question = QUESTIONS.find((q) => q.id === 'guardians');
   const answer = question.answers.find((a) => a.id === question.correct);
-  assert.equal(answer.text.toLowerCase(), counterTo('scroll'));
+  assert.equal(answer.text.toLowerCase(), counterTo('stone'));
+});
+
+test('storykeeper: the mural question agrees with the mural itself', () => {
+  const question = QUESTIONS.find((q) => q.id === 'mural');
+  const answer = question.answers.find((a) => a.id === question.correct);
+  const inkPair = MURAL_PAIRS.find((pair) => pair.dark.id === 'ink');
+  // "The empty page" must name the same panel the mural joins the ink to.
+  assert.ok(
+    answer.text.toLowerCase().includes(inkPair.light.id),
+    `${answer.text} should name the ${inkPair.light.id}`
+  );
+});
+
+test('storykeeper: the sparrow question agrees with what the sparrow said', () => {
+  const question = QUESTIONS.find((q) => q.id === 'sparrow');
+  const answer = question.answers.find((a) => a.id === question.correct);
+  const spoken = GOSSIP.bird.lines.map((line) => line.text).join(' ');
+  assert.ok(
+    spoken.includes(answer.text),
+    `the sparrow never says "${answer.text}"`
+  );
+  // And no wrong answer may also appear in what she said.
+  for (const wrong of question.answers.filter((a) => a.id !== question.correct)) {
+    assert.ok(!spoken.includes(wrong.text), `"${wrong.text}" is also in the sparrow's report`);
+  }
+});
+
+test('storykeeper: no question can be answered by elimination alone', () => {
+  for (const question of QUESTIONS) {
+    assert.ok(question.answers.length >= 3, `${question.id} needs real alternatives`);
+    for (const answer of question.answers) {
+      assert.ok(answer.text.trim().length > 0);
+    }
+    const texts = question.answers.map((a) => a.text.toLowerCase());
+    assert.equal(new Set(texts).size, texts.length, `${question.id} repeats an option`);
+    // The correct answer must not be the only one the prompt does not mention,
+    // and must not be the longest option, which is the usual accidental tell.
+    const correct = question.answers.find((a) => a.id === question.correct);
+    const longest = Math.max(...question.answers.map((a) => a.text.length));
+    assert.ok(
+      correct.text.length < longest || texts.filter((t) => t.length === longest).length > 1,
+      `${question.id}: the right answer is the longest option`
+    );
+  }
+});
+
+test('mural: the two halves are hung in different orders', () => {
+  const dark = darkPanels();
+  const light = lightPanels();
+  assert.equal(dark.length, light.length);
+  dark.forEach((panel, i) => {
+    assert.notEqual(
+      panel.pairId, light[i].pairId,
+      `row ${i + 1} pairs with itself, which gives the puzzle away`
+    );
+  });
+  // Every pair must still appear exactly once on each side.
+  assert.deepEqual(
+    [...dark.map((p) => p.pairId)].sort(),
+    MURAL_PAIRS.map((p) => p.id).sort()
+  );
+  assert.deepEqual(
+    [...light.map((p) => p.pairId)].sort(),
+    MURAL_PAIRS.map((p) => p.id).sort()
+  );
+});
+
+test('mural: the arrangement does not shift while she is solving it', () => {
+  const before = darkPanels().map((p) => p.id).join(',') + '|' + lightPanels().map((p) => p.id).join(',');
+  const state = createMuralState();
+  tryJoin(state, MURAL_PAIRS[0].dark.id, MURAL_PAIRS[1].light.id);  // a mistake
+  tryJoin(state, MURAL_PAIRS[0].dark.id, MURAL_PAIRS[0].light.id);  // and a match
+  const after = darkPanels().map((p) => p.id).join(',') + '|' + lightPanels().map((p) => p.id).join(',');
+  assert.equal(after, before);
 });

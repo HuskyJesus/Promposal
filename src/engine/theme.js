@@ -3,7 +3,7 @@
  *
  * Scenes, characters and interface all read from here, so the whole game can
  * be re-tinted from one place. The player-facing colours in src/config.js feed
- * into this file — this is where those few choices become the full palette.
+ * into this file, this is where those few choices become the full palette.
  */
 
 import { config } from '../config.js';

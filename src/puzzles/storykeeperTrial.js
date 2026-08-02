@@ -3,45 +3,61 @@
  *
  * Three questions asked by the hall itself. They are drawn from things the
  * player has already seen, so they reward attention rather than trivia
- * knowledge — the point is to feel clever, not to be blocked.
+ * knowledge. The point is to feel clever, never to be blocked.
  */
 
+/*
+ * Three questions, and none of them can be answered by picking the only
+ * sensible-looking option. Every wrong answer is a real thing from somewhere in
+ * this evening, so each question asks her to remember which one, not to spot
+ * the odd one out. Nothing here needs knowledge from outside the game, every
+ * question has exactly one defensible answer, and the hint ladder ends by
+ * naming it, so the trial can never actually stop her.
+ */
 export const QUESTIONS = [
   {
-    id: 'moonflowers',
-    prompt: 'The woods asked for a number, and the number keeps returning. How many moonflowers were hidden among the trees?',
+    id: 'mural',
+    // The mural is always solved before the trial begins, so she has just seen
+    // all four of these motifs and joined each to its opposite herself.
+    prompt: 'The mural you just mended joined every panel to its opposite, never to its likeness. Which panel did the drop of ink turn out to need?',
     answers: [
-      { id: 'a', text: 'Two' },
-      { id: 'b', text: 'Three' },
-      { id: 'c', text: 'Seven' }
+      { id: 'a', text: 'The flower that had opened' },
+      { id: 'b', text: 'The empty page' },
+      { id: 'c', text: 'The lantern throwing light across the floor' },
+      { id: 'd', text: 'The moon that keeps watch all night' }
     ],
     correct: 'b',
-    hint: 'Count the lights on your own fragment track. The kingdom is fond of this number.',
-    afterword: 'Three. It is always three. The hall seems pleased that you noticed.'
+    hint: 'A stain is only a stain until something agrees to hold it.',
+    afterword: 'The empty page. Ink is nothing on its own, and the hall knows it.'
   },
   {
-    id: 'gossip',
-    prompt: 'A frog in the woods was absolutely certain about one scandal. What was it?',
-    answers: [
-      { id: 'a', text: "The prince's horse wears false horseshoes" },
-      { id: 'b', text: 'The baker has been watering the honey' },
-      { id: 'c', text: 'The river has been running backwards on purpose' }
-    ],
-    correct: 'a',
-    hint: 'It concerned somebody very well dressed, and their extremely well dressed horse.',
-    afterword: 'Correct, and Bartholomew stands by it. He has never once been wrong, in his own opinion.'
-  },
-  {
-    id: 'trial',
-    prompt: 'At the cottage, the guardians settled everything with three symbols. Which one defeats the Scroll?',
+    id: 'guardians',
+    // Each guardian's boast is spoken aloud at the cottage, and the boasts are
+    // required reading: the trial there cannot be attempted without them.
+    prompt: 'Each guardian at the cottage boasted about a single victory. Which of them wins by leaving nobody able to remember what the loser looked like?',
     answers: [
       { id: 'a', text: 'Stone' },
       { id: 'b', text: 'Scroll' },
       { id: 'c', text: 'Shears' }
     ],
+    correct: 'b',
+    hint: 'That one does not cut and it does not blunt. It covers, and it keeps covering.',
+    afterword: 'Scroll, who wraps around Stone until the shape of it is forgotten. Precisely so.'
+  },
+  {
+    id: 'sparrow',
+    // Deliberately not a three. The kingdom's fondness for that number is the
+    // trap; the sparrow was counting, and she gave an exact figure.
+    prompt: 'A breathless sparrow reported a theft from the cottage windowsill and named a small blue suspect. How many pastries had gone missing?',
+    answers: [
+      { id: 'a', text: 'Three' },
+      { id: 'b', text: 'Four' },
+      { id: 'c', text: 'Six' },
+      { id: 'd', text: 'A dozen' }
+    ],
     correct: 'c',
-    hint: 'One guardian was very proud of how neatly it cut things.',
-    afterword: 'Shears. The kingdom will now be deciding dinner on your authority.'
+    hint: 'The sparrow was counting, and for once the answer is not the number this kingdom is fond of.',
+    afterword: 'Six. The crumbs on the crown were, the accused maintains, placed there by a dragon.'
   }
 ];
 
@@ -54,7 +70,7 @@ export function currentQuestion(state) {
 }
 
 /**
- * Answers the current question. A wrong answer never ends the trial — it just
+ * Answers the current question. A wrong answer never ends the trial; it just
  * asks again with a warmer nudge.
  * @returns {{correct: boolean, finished: boolean, question: object}}
  */

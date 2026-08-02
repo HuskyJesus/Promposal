@@ -7,7 +7,7 @@ src/config.js
 ```
 
 Open it in any text editor, change the text between the quote marks, save, and
-reload the page. There is no build step — what you edit is what runs.
+reload the page. There is no build step, what you edit is what runs.
 
 ---
 
@@ -56,7 +56,7 @@ closing message.
 
 ### 4. Colours
 
-Inside `colors`, any CSS colour works — `'#f3e3c3'`, `'rebeccapurple'`,
+Inside `colors`, any CSS colour works, `'#f3e3c3'`, `'rebeccapurple'`,
 `'rgb(20 30 40)'`. They drive both the interface and the artwork.
 
 | Colour | Where you'll see it |
@@ -73,15 +73,15 @@ Inside `colors`, any CSS colour works — `'#f3e3c3'`, `'rebeccapurple'`,
 ### 5. Title screen wording
 
 `gameTitle` and `gameSubtitle` set the title screen, the browser tab and the
-page metadata. **Keep these free of any mention of prom** — the surprise is
+page metadata. **Keep these free of any mention of prom**: the surprise is
 meant to arrive at the end, not in a browser tab or a link preview.
 
 ---
 
 ## Writing tips
 
-* Anywhere in `config.js` — and anywhere in `src/data/dialogue.js` if you want
-  to go further — you can write `{name}`, `{author}`, `{guide}` or
+* Anywhere in `config.js`: and anywhere in `src/data/dialogue.js` if you want
+  to go further, you can write `{name}`, `{author}`, `{guide}` or
   `{endearment}` and the game fills them in for you.
 * Line breaks inside `finalMessage` are preserved; a blank line starts a new
   paragraph.
@@ -90,12 +90,12 @@ meant to arrive at the end, not in a browser tab or a link preview.
 
 ## Going further (optional)
 
-* **The full colour system** — `src/engine/theme.js`. `config.js` sets the
+* **The full colour system**: `src/engine/theme.js`. `config.js` sets the
   handful of colours the interface uses; this file turns them into the
   complete palette for characters, scenery and dialogue speakers.
-* **Dialogue and jokes** — `src/data/dialogue.js`
-* **Optional gossip conversations** — `src/data/gossip.js`
-* **Puzzle content** — `src/puzzles/guardianTrial.js`, `muralPairs.js`,
+* **Dialogue and jokes**: `src/data/dialogue.js`
+* **Optional gossip conversations**: `src/data/gossip.js`
+* **Puzzle content**: `src/puzzles/guardianTrial.js`, `muralPairs.js`,
   `storykeeperTrial.js`. Each file holds its own questions, clues and hints.
   Run `npm test` afterwards; the tests check that every hint still matches the
   real answer.

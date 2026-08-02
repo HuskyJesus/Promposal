@@ -1,5 +1,5 @@
 /**
- * The final scene — The Garden Beyond the Stars.
+ * The final scene, The Garden Beyond the Stars.
  *
  * Three lanterns, one personal star, its neighbour, and the last page of the
  * story. Everything after the lanterns is scripted: the light makes the
@@ -421,10 +421,10 @@ export class GardenScene extends WorldScene {
   /* ------------------------------------------------------------- sequence */
 
   async #lightLantern(id) {
-    // The lanterns insist on being lit in order — one, then two, then three.
+    // The lanterns insist on being lit in order, one, then two, then three.
     const expected = this.lit.findIndex((v) => !v);
     if (id !== expected) {
-      await this.say([{ who: 'theo', mood: 'worried', text: 'Not that one yet. In order — that is rather the whole point of three.' }]);
+      await this.say([{ who: 'theo', mood: 'worried', text: 'Not that one yet. Left to right, one then two then three. Order is rather the whole point of three.' }]);
       return;
     }
 
@@ -481,13 +481,13 @@ export class GardenScene extends WorldScene {
     if (this.game.settings.reducedMotion) {
       // Same story beat, without the sweeping motion.
       this.neighbourGlow = 1;
-      this.game.ui.caption('Light travels to the neighbouring star and back — twice');
+      this.game.ui.caption('Light travels to the neighbouring star and back, twice');
       this.game.audio.sparkle();
       return wait(900);
     }
     return new Promise((resolve) => {
       this.beam = { t: 0, trips: 0, totalTrips: 2, resolve };
-      this.game.ui.caption('Light travels to the neighbouring star and back — twice');
+      this.game.ui.caption('Light travels to the neighbouring star and back, twice');
     });
   }
 
@@ -528,7 +528,7 @@ export class GardenScene extends WorldScene {
       el('h2', { class: 'final-heading', text: 'The Final Page' }),
       el('div', { class: 'final-message' },
         splitParagraphs(config.finalMessage).map((text) => el('p', { text: fill(text) }))),
-      el('p', { class: 'signature', text: `— ${config.authorName}` }),
+      el('p', { class: 'signature', text: `Always, ${config.authorName}` }),
       el('div', { class: 'panel-actions' }, [
         el('button', {
           class: 'menu-button', type: 'button', text: 'There is one more line',
@@ -619,7 +619,7 @@ export class GardenScene extends WorldScene {
 
     return game.ui.openPanel((close) => ornateFrame([
       el('h2', { class: 'final-heading', text: soft ? 'The page stays open' : 'The final page has been written.' }),
-      el('p', { class: 'signature', text: soft ? `He is waiting, and he is not going anywhere. — ${config.guideName}` : fill(config.finalResponseMessage) }),
+      el('p', { class: 'signature', text: soft ? `He is waiting, and he is not going anywhere. ${config.guideName}` : fill(config.finalResponseMessage) }),
       details ? el('p', { class: 'final-note', text: details }) : null,
       config.memories.length
         ? el('ul', { class: 'memory-list', 'aria-label': 'Whispered by the flowers' },

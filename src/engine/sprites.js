@@ -129,7 +129,6 @@ export function drawHeroine(ctx, {
   const pose = heroPose(state, statePhase, time, moving);
   const stride = moving ? Math.sin(time * 11) : 0;
   const side = facing === 'left' ? -1 : facing === 'right' ? 1 : 0;
-  const back = facing === 'up';
 
   // Hair trails a little behind whichever way she is heading.
   const hairSway = Math.sin(time * 2.1) * 1.3
@@ -277,7 +276,7 @@ export function drawHeroine(ctx, {
   ctx.quadraticCurveTo(0, -24.4 * s, 9.2 * s, -29.6 * s);
   ctx.stroke();
 
-  // Star clasp at the throat — her small link to the sky.
+  // Star clasp at the throat, her small link to the sky.
   const claspGlow = Math.max(carry, pose.glow);
   if (claspGlow > 0.02) {
     const glow = ctx.createRadialGradient(0, -31.5 * s, 0, 0, -31.5 * s, 9 * s);
@@ -319,18 +318,17 @@ export function drawHeroine(ctx, {
   ctx.ellipse(-3.4 * s, headY - 6 * s, 4.4 * s, 2.1 * s, -0.3, 0, Math.PI * 2);
   ctx.fill();
 
-  if (!back) {
-    // Face opening, shifted with the facing so she reads as turning.
-    ctx.fillStyle = H.skin;
-    ctx.beginPath();
-    ctx.ellipse(side * 1.5 * s, headY + 1.8 * s, 5.9 * s, 6.2 * s, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // Face opening. She always faces the reader: the direction she is heading is
+  // told by her body, her stride and the way her hair trails, never by hiding
+  // or sliding her eyes.
+  ctx.fillStyle = H.skin;
+  ctx.beginPath();
+  ctx.ellipse(0, headY + 1.8 * s, 5.9 * s, 6.2 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
 
   // Front strands falling past the jaw on both sides.
   ctx.fillStyle = H.hairDark;
   for (const strand of [-1, 1]) {
-    if (side === strand * -1 && !back) continue; // hidden on the far side
     ctx.beginPath();
     ctx.moveTo(strand * 7.4 * s, headY - 5 * s);
     ctx.quadraticCurveTo(
@@ -344,14 +342,12 @@ export function drawHeroine(ctx, {
   }
 
   /* ---- face ------------------------------------------------------------ */
-  if (!back) {
+  {
     const eyeY = headY + 1.4 * s;
-    const shift = side * 1.9 * s;
     const blink = Math.sin(time * 0.85 + 1.3) > 0.975 ? 0.12 : 1;
     ctx.fillStyle = '#241a26';
     for (const eye of [-1, 1]) {
-      if ((side === 1 && eye === -1) || (side === -1 && eye === 1)) continue;
-      const ex = eye * 2.7 * s + shift;
+      const ex = eye * 2.7 * s;
       ctx.beginPath();
       ctx.ellipse(ex, eyeY, 1.15 * s, 1.55 * s * blink, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -365,9 +361,8 @@ export function drawHeroine(ctx, {
     }
     ctx.fillStyle = rgba(H.blush, 0.4);
     for (const cheek of [-1, 1]) {
-      if ((side === 1 && cheek === -1) || (side === -1 && cheek === 1)) continue;
       ctx.beginPath();
-      ctx.ellipse(cheek * 4 * s + shift, eyeY + 2.6 * s, 1.9 * s, 1.1 * s, 0, 0, Math.PI * 2);
+      ctx.ellipse(cheek * 4 * s, eyeY + 2.6 * s, 1.9 * s, 1.1 * s, 0, 0, Math.PI * 2);
       ctx.fill();
     }
     // A small smile that widens on the happy states.
@@ -375,11 +370,11 @@ export function drawHeroine(ctx, {
     ctx.strokeStyle = 'rgba(60,36,44,0.7)';
     ctx.lineWidth = 0.9 * s;
     ctx.beginPath();
-    ctx.arc(shift, eyeY + 2.2 * s, 2.1 * s, 0.35 * Math.PI, (0.65 + 0.1 * joy) * Math.PI);
+    ctx.arc(0, eyeY + 2.2 * s, 2.1 * s, 0.35 * Math.PI, (0.65 + 0.1 * joy) * Math.PI);
     ctx.stroke();
   }
 
-  // Three tiny lavender blossoms tucked into her hair — the recurring number.
+  // Three tiny lavender blossoms tucked into her hair, the recurring number.
   ctx.fillStyle = H.accent;
   for (let i = 0; i < 3; i++) {
     ctx.beginPath();
@@ -410,7 +405,7 @@ export function drawHeroine(ctx, {
 }
 
 /* =========================================================================
-   Theo — a small enchanted blue bear who is definitely royalty
+   Theo, a small enchanted blue bear who is definitely royalty
    ========================================================================= */
 
 const T = THEO_COLORS;
@@ -508,7 +503,7 @@ export function drawTheo(ctx, {
   ctx.lineTo(0, -2.4 * s);
   ctx.stroke();
 
-  /* eyes — the whole personality lives here */
+  /* eyes, the whole personality lives here */
   const eyeShift = facing === 'left' ? -1.1 * s : facing === 'right' ? 1.1 * s : 0;
   for (const eye of [-1, 1]) {
     const ex = eye * 3.5 * s + eyeShift;
@@ -727,7 +722,7 @@ export function drawChattyFlowers(ctx, { x, y, time = 0, scale = 1 }) {
  * One of the three guardians of the cottage garden: a carved stone herm on a
  * stepped plinth, holding its symbol above itself. Each is cut from a slightly
  * different stone so the three read apart at a glance, but the symbol on top
- * is always the thing that identifies it — the colour only ever agrees.
+ * is always the thing that identifies it, the colour only ever agrees.
  */
 const GUARDIAN_STONE = {
   stone: { light: '#8d8579', mid: '#6d675d', dark: '#494339', moss: '#3f6b4a' },
@@ -869,7 +864,7 @@ export function drawWallPortrait(ctx, { x, y, time = 0, scale = 1, tone = 'dark'
   ctx.restore();
 }
 
-/** Stone, Scroll and Shears — also used on the puzzle buttons. */
+/** Stone, Scroll and Shears, also used on the puzzle buttons. */
 export function drawSymbolGlyph(ctx, x, y, r, symbol, palette = {}) {
   const stroke = palette.stroke || '#2f2338';
   ctx.save();

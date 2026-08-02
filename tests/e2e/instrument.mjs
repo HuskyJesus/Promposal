@@ -1,7 +1,7 @@
 /**
  * Test instrumentation.
  *
- * The shipped game exposes nothing on `window` — there is no debug seam, no
+ * The shipped game exposes nothing on `window`: there is no debug seam, no
  * `?test=1` branch, no test-only code path in any file that reaches the
  * browser. The end-to-end suites still need to read game state and place the
  * heroine in front of a given interactable (walking her across the map with

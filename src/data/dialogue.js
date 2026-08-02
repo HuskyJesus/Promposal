@@ -6,9 +6,9 @@
  * person's name.
  *
  * Line shape: `{ who, text, mood?, choices? }`
- *   who   — 'theo' | 'hero' | 'narrator' | 'frog' | 'bird' | 'flowers' |
- *           'portrait' | 'guardian'
- *   mood  — nudges the drawn portrait ('happy', 'proud', 'worried', 'sly')
+ *   who:  'theo' | 'hero' | 'narrator' | 'frog' | 'bird' | 'flowers' |
+ *         'portrait' | 'guardian'
+ *   mood: nudges the drawn portrait ('happy', 'proud', 'worried', 'sly')
  */
 
 export const PROLOGUE_PAGES = [
@@ -23,7 +23,7 @@ export const PROLOGUE_PAGES = [
   {
     title: 'The missing page',
     paragraphs: [
-      'What it did not have — what it had somehow lost, on a night nobody wrote down — was its final page.',
+      'What it did not have, what it had somehow lost on a night nobody wrote down, was its final page.',
       'The last page came loose and scattered into three bright fragments, and without it the story simply stopped, holding its breath, waiting.',
       'A story cannot end itself. It has to be finished by someone who was there.'
     ]
@@ -45,7 +45,7 @@ export const WOODS = {
     { who: 'theo', mood: 'proud', text: 'I am a highly respected royal guardian. There is a considerable difference, and I would like it noted down somewhere official.' },
     { who: 'theo', text: 'My name is {guide}. You may have heard of me. In some circles I am practically a prince.' },
     { who: 'theo', mood: 'worried', text: 'But listen. This story has lost its final page, and until it is found nothing here can end. Not properly. Not the way it deserves to.' },
-    { who: 'theo', text: 'When the page came loose it scattered into three fragments. Three. It is always three in this kingdom — you will get used to that.' },
+    { who: 'theo', text: 'When it came loose the page broke into three fragments, and the kingdom put each one somewhere it would not be handed back easily. Three. It is always three here. You will get used to that.' },
     {
       who: 'theo',
       text: 'Any questions before we begin? Be quick, I am extremely busy.',
@@ -60,8 +60,8 @@ export const WOODS = {
     { who: 'theo', mood: 'happy', text: 'They did mention you would ask that immediately. They seemed very pleased about it.' }
   ],
   theoTutorial: [
-    { who: 'theo', text: 'Walk wherever you like — the woods are yours. On a phone, hold the left side of the screen and steer with your thumb. Otherwise the arrow keys will do nicely.' },
-    { who: 'theo', text: 'When a little star appears above something, press the round button — or Space — and I will explain whatever it is. Usually correctly.' },
+    { who: 'theo', text: 'Walk wherever you like. The woods are yours. On a phone, hold the left side of the screen and steer with your thumb. Otherwise the arrow keys will do nicely.' },
+    { who: 'theo', text: 'When a little star appears above something, press the round button, or Space, and I will explain whatever it is. Usually correctly.' },
     { who: 'theo', mood: 'proud', text: 'Three moonflowers are hidden among these trees. Find them and the first fragment will show itself. I shall supervise. Closely.' }
   ],
   moonflowers: {
@@ -75,7 +75,7 @@ export const WOODS = {
     ],
     hollow: [
       { who: 'narrator', text: 'Deep in a hollow log, the third moonflower glows like a lantern that forgot it was one.' },
-      { who: 'theo', mood: 'proud', text: 'Three. Three! Listen — do you hear that? The woods always chime three times when something is finished.' }
+      { who: 'theo', mood: 'proud', text: 'Three. Three! Listen. Do you hear that? The woods always chime three times when something is finished.' }
     ]
   },
   clues: {
@@ -91,12 +91,12 @@ export const WOODS = {
       { who: 'theo', text: 'Later. It is a whole thing. There is a speech. I have been practising it in a mirror.' }
     ],
     lanterns: [
-      { who: 'narrator', text: 'Three lanterns hang from a low branch. As you pass, they light one after another — never all at once, always in order.' },
+      { who: 'narrator', text: 'Three lanterns hang from a low branch. As you pass, they light one after another, never all at once, always in order: first, second, third.' },
       { who: 'theo', text: 'One, two, three. The old lanterns of the kingdom only ever light that way. Nobody remembers why. I have theories.' }
     ]
   },
   complete: [
-    { who: 'theo', mood: 'proud', text: 'Three moonflowers, and the woods are pleased with you. Look — the light is putting itself back together.' },
+    { who: 'theo', mood: 'proud', text: 'Three moonflowers, and the woods are pleased with you. Look. The light is putting itself back together.' },
     { who: 'narrator', text: 'The three blossoms rise from your hands, spin once around each other, and settle into a single page of warm parchment.' }
   ],
   fragment: {
@@ -108,11 +108,11 @@ export const WOODS = {
     ]
   },
   toCottage: [
-    { who: 'theo', text: 'The next fragment is at the cottage past the stones. Mind the guardians — they are dreadful gossips and they take their job extremely seriously.' },
+    { who: 'theo', text: 'The next fragment is at the cottage past the stones. Mind the guardians. They are dreadful gossips and they take their job extremely seriously.' },
     { who: 'theo', mood: 'sly', text: 'Also they cheat. Allegedly. I have never proved it.' }
   ],
   hintLines: [
-    'One of them grows where the water talks — follow the stream to the north.',
+    'One of them grows where the water talks. Follow the stream to the north.',
     'One is tucked between two standing stones, on the east side of the wood.',
     'One sleeps inside the fallen log, down in the south-west corner.'
   ]
@@ -124,7 +124,7 @@ export const COTTAGE = {
     { who: 'theo', mood: 'worried', text: 'The second fragment is inside the lantern above the door, and the lantern will not open until the guardians are satisfied.' },
     { who: 'theo', mood: 'proud', text: 'They will test you with Stone, Scroll and Shears. It is the kingdom’s oldest and most respected method for settling anything at all.' },
     { who: 'hero', text: 'Anything at all?' },
-    { who: 'theo', text: 'Supper. What to watch afterwards. Wars, occasionally. Speak to all three of them first — each one will tell you exactly what beats it, because they cannot help boasting.' }
+    { who: 'theo', text: 'Supper. What to watch afterwards. Wars, occasionally. Speak to all three of them first. Each one will tell you exactly what beats it, because they cannot help boasting.' }
   ],
   guardians: {
     stone: [
@@ -141,7 +141,7 @@ export const COTTAGE = {
     ]
   },
   needClues: [
-    { who: 'theo', mood: 'worried', text: 'Speak to the three guardians first. Each of them will boast about exactly what they beat — it is their favourite subject, and frankly it does half your work for you.' }
+    { who: 'theo', mood: 'worried', text: 'Speak to the three guardians first. Each of them will boast about exactly what they beat. It is their favourite subject, and frankly it does half your work for you.' }
   ],
   props: {
     kettle: [
@@ -153,7 +153,7 @@ export const COTTAGE = {
       { who: 'theo', mood: 'sly', text: 'Do not open that last one. I have been told, in no uncertain terms, that I am not to let you open that one.' }
     ],
     journal: [
-      { who: 'narrator', text: 'An open journal. The page is a list of arguments settled by Stone, Scroll and Shears — where to eat, what to watch, who was getting up to close the window.' },
+      { who: 'narrator', text: 'An open journal. The page is a list of arguments settled by Stone, Scroll and Shears: where to eat, what to watch, who was getting up to close the window.' },
       { who: 'narrator', text: 'At the bottom, underlined twice: “Best of three. Always best of three.”' },
       { who: 'theo', mood: 'happy', text: 'You two are such freaks. Affectionately, of course. I am contractually obliged to say affectionately.' }
     ],
@@ -179,11 +179,11 @@ export const COTTAGE = {
     ]
   },
   toHall: [
-    { who: 'theo', text: 'One fragment left. It is in the castle — the old hall that lost its colour.' },
+    { who: 'theo', text: 'One fragment left. It is in the castle, in the old hall that lost its colour.' },
     { who: 'theo', mood: 'worried', text: 'I should warn you: the portraits in there talk. Constantly. About each other. It is the best and worst room in the kingdom.' }
   ],
   hintLines: [
-    'Speak to all three guardians before you begin — each one tells you what it beats.',
+    'Speak to all three guardians before you begin. Each one tells you what it beats.',
     'The rule goes in a circle: Stone blunts Shears, Shears cut Scroll, Scroll covers Stone.',
     'Whatever the guardian is holding, answer with the symbol that the rules say defeats it.'
   ]
@@ -197,18 +197,18 @@ export const HALL = {
     { who: 'theo', text: 'The great mural was split down the middle. Join the halves, answer what the hall asks, and the last fragment is yours.' }
   ],
   muralIntro: [
-    { who: 'narrator', text: 'The mural fills the far wall — or half of it does. The dark panels hang on one side, the light panels on the other, and none of them quite line up.' },
-    { who: 'theo', text: 'Every panel on the dark side has an opposite on the light side. Not a copy — an opposite. The two together make one whole idea.' }
+    { who: 'narrator', text: 'The mural fills the far wall, or half of it does. The dark panels hang on one side, the light panels on the other, and none of them quite line up.' },
+    { who: 'theo', text: 'Every panel on the dark side has an opposite on the light side. Not a copy. An opposite. The two together make one whole idea. They are not hung in matching order, either, so read them rather than counting rows.' }
   ],
   muralSolved: [
     { who: 'narrator', text: 'The panels slide toward one another and lock, and for the first time in a very long while the mural shows one picture instead of two.' },
-    { who: 'narrator', text: 'Colour creeps back into the hall the way warmth returns to cold hands — slowly, then all at once.' },
+    { who: 'narrator', text: 'Colour creeps back into the hall the way warmth returns to cold hands: slowly, then all at once.' },
     { who: 'theo', mood: 'proud', text: 'Two halves. One picture. I would like it on record that I understood this immediately.' }
   ],
   triviaIntro: [
     { who: 'narrator', text: 'A silver frame at the end of the hall clears its throat, which is unusual, because it is a frame.' },
     { who: 'portrait', text: 'Three questions, traveller. The Storykeeper’s Trial. Answer them and the hall will give up what it has been keeping.' },
-    { who: 'theo', mood: 'worried', text: 'I was told these questions were difficult. Evidently, they did not account for you.' }
+    { who: 'theo', mood: 'worried', text: 'They ask about tonight. All of tonight, including the parts you thought were only chatting. I was told the questions were difficult, but then, they had not met you.' }
   ],
   triviaSolved: [
     { who: 'portrait', text: 'Three from three. The hall has not been this pleased since the year the chandelier fell on the tax collector.' },
@@ -229,7 +229,7 @@ export const HALL = {
   },
   windowStar: [
     { who: 'narrator', text: 'Through the tall window, one warm star waits above the garden wall, brighter than the hall’s careful silver.' },
-    { who: 'theo', mood: 'sly', text: 'Still spoken for. Still not explaining. We are nearly at the part where I explain.' }
+    { who: 'theo', mood: 'sly', text: 'That one is spoken for. I am still not explaining. We are very nearly at the part where I explain.' }
   ],
   complete: [
     { who: 'narrator', text: 'The restored mural glows once, and the final fragment lifts away from it like a page turning by itself.' }
@@ -238,17 +238,17 @@ export const HALL = {
     title: 'The Third Fragment',
     paragraphs: [
       'In a hall that had given up on colour, the heroine put two halves of a picture back together, and the picture forgave the room instantly.',
-      'She answered three questions asked by a frame, and the frame — who had been trying to be intimidating — gave up and simply admired her.',
+      'She answered three questions asked by a frame, and the frame, which had been trying very hard to be intimidating, gave up and simply admired her.',
       'And the last piece of the missing page came loose into her hands, warm as a lantern.'
     ]
   },
   toGarden: [
-    { who: 'theo', mood: 'happy', text: 'That is all three. Come with me — there is a garden behind this hall, and it has been kept for exactly this evening.' },
+    { who: 'theo', mood: 'happy', text: 'That is all three. Come with me. There is a garden behind this hall, and it has been kept for exactly this evening.' },
     { who: 'theo', text: 'Do not run. Or do. I cannot really stop you. But I have arranged things, and I would like them to happen in order.' }
   ],
   hintLines: [
-    'Every dark panel has an opposite on the light side — not a copy, an opposite.',
-    'The three questions only ask about things you have already seen tonight.',
+    'Every dark panel has an opposite on the light side. Not a copy, an opposite, and never in the same row.',
+    'The three questions are all about this evening: the mended mural, the guardians at the cottage, and whoever was chattering in the woods.',
     'The way out is the tall doors at the far end, once the mural and the trial are done.'
   ]
 };
@@ -265,19 +265,19 @@ export const GARDEN = {
   ],
   beforeStar: [
     { who: 'theo', text: 'The kingdom has an old promise, {name}. Older than the castle. Older than me, and I am practically a prince.' },
-    { who: 'theo', text: 'It is never spoken aloud. It is made with three small signs, in order, every time — because saying it once was never going to be enough for anyone who meant it.' },
+    { who: 'theo', text: 'It is never spoken aloud. It is made with three small signs, in order, every time, because saying it once was never going to be enough for anyone who meant it.' },
     { who: 'theo', mood: 'proud', text: 'One for “I”. One for “love”. One for “you”.' },
     { who: 'theo', text: 'Three lanterns. Three moonflowers. Three chimes at the end of every chapter. You have been making that promise all evening without being told.' },
     { who: 'hero', text: 'Three kisses.' },
     { who: 'theo', mood: 'happy', text: 'Three kisses. Yes. I did wonder how long it would take you.' }
   ],
   starSequence: [
-    { who: 'theo', text: 'Now. That star. The one that has been following us since the woods.' },
-    { who: 'narrator', text: 'The warm star brightens, and a second, smaller star wakes up beside it — a neighbour, close enough to lean on.' },
+    { who: 'theo', text: 'Now. Up there. The warm one, the star that does not twinkle so much as insist. It has been over us since the woods.' },
+    { who: 'narrator', text: 'The warm star brightens, and a second, smaller star wakes up beside it: a neighbour, close enough to lean on.' },
     { who: 'theo', text: 'Watch. This is the part I have been practising.' }
   ],
   afterStar: [
-    { who: 'theo', mood: 'happy', text: 'There and back. Twice. And it will keep going as many times as it takes — that is the arrangement, apparently. I did not write it. I merely deliver it.' },
+    { who: 'theo', mood: 'happy', text: 'There and back. Twice. And it will keep going as many times as it takes. That is the arrangement, apparently. I did not write it. I merely deliver it.' },
     { who: 'theo', text: 'I have watched this whole story from the shelf, you know. I am blue, I have stars, and I have excellent hearing.' },
     { who: 'theo', mood: 'proud', text: 'I know who left the moonflowers. I know who taught the guardians to cheat. And I know who has been waiting all evening for you to reach this page.' },
     { who: 'narrator', text: 'The three fragments rise out of your hands, find one another, and settle into a single unfinished page.' },
@@ -285,7 +285,7 @@ export const GARDEN = {
   ],
   yesResponse: [
     { who: 'theo', mood: 'proud', text: 'YES. I KNEW IT. I would like everyone present to note that I never doubted her for a moment.' },
-    { who: 'theo', mood: 'happy', text: 'Right — flowers, stars, the whole arrangement. I have been holding this in since the woods.' }
+    { who: 'theo', mood: 'happy', text: 'Right. Flowers, stars, the whole arrangement. I have been holding this in since the woods.' }
   ],
   talkResponse: [
     { who: 'theo', mood: 'happy', text: 'Of course. Some pages are meant to be read out loud, in person, by the person who wrote them.' },
@@ -293,7 +293,7 @@ export const GARDEN = {
   ],
   hintLines: [
     'Light the three lanterns, then follow the path to the centre of the garden.',
-    'The lanterns are along the hedge — walk up to each one and press to interact.',
+    'Light them from the left: first, second, third. Walk up to each one and press to interact.',
     'Everything left in this garden happens on its own. Just keep walking toward the light.'
   ]
 };

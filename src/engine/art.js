@@ -1,6 +1,6 @@
 /**
  * The art library. Every tree, mushroom, lantern, cobblestone and window in
- * the game is drawn by one of these functions — there are no image files in
+ * the game is drawn by one of these functions. There are no image files in
  * this project. Scenes call them once into an offscreen buffer.
  *
  * A seeded random number generator keeps the "hand-drawn" wobble identical on
@@ -32,7 +32,7 @@ export function mix(hexA, hexB, t) {
  *
  * The `rgb()` case matters: `mix()` returns one, and mixed colours are
  * routinely mixed again or faded with `rgba()`. Parsing only hex made those
- * calls produce an invalid colour, which canvas silently ignores — leaving
+ * calls produce an invalid colour, which canvas silently ignores, leaving
  * whatever fill style happened to be set before.
  */
 export function hexToRgb(color) {
@@ -593,7 +593,7 @@ export function paintHedgeWall(ctx, points, {
   ctx.fill();
 
   // The lit crown is a continuous ribbon along the run, not one highlight per
-  // clump — dots would bead up the moment a hedge ran away from the camera.
+  // clump. Dots would bead up the moment a hedge ran away from the camera.
   ctx.save();
   ctx.strokeStyle = crown;
   ctx.lineWidth = thickness * 0.4;
@@ -637,7 +637,7 @@ export function drawRoseArch(ctx, x, y, scale = 1, {
   ctx.save();
   ctx.translate(x, y);
 
-  // Only the posts cast shadow — the opening is meant to be walked through.
+  // Only the posts cast shadow, the opening is meant to be walked through.
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   for (const side of [-1, 1]) {
     ctx.beginPath();
@@ -1234,7 +1234,27 @@ export function drawCastleSilhouette(ctx, x, y, scale, color, glow) {
 }
 
 /** Stone archway used for doorways between areas. */
-export function drawArch(ctx, x, y, scale, palette, openGlow) {
+/**
+ * How far above its base an arch's outer curve actually peaks.
+ *
+ * The curve is a quadratic, so its highest point is nowhere near the control
+ * point that defines it: it reaches only three quarters of the way up. Working
+ * that out here, once, is what keeps the three stars sitting on the keystone
+ * instead of floating in the sky above it at some scales and not others.
+ */
+export function archCrestHeight(scale = 1) {
+  const h = 84 * scale;
+  const shoulder = h * 0.6;
+  const control = h + 22 * scale;
+  return 0.25 * shoulder + 0.5 * control + 0.25 * shoulder;
+}
+
+/**
+ * A stone doorway. Pass `mark` as `{ lit, time, color }` to set the three stars
+ * over the keystone; they are placed from the arch's own geometry, so they stay
+ * centred and correctly seated at any scale, resolution or orientation.
+ */
+export function drawArch(ctx, x, y, scale, palette, openGlow, mark = null) {
   ctx.save();
   ctx.translate(x, y);
   const w = 56 * scale;
@@ -1267,6 +1287,13 @@ export function drawArch(ctx, x, y, scale, palette, openGlow) {
     ctx.moveTo(w / 2, -i * 16 * scale);
     ctx.lineTo(w / 2 + 10 * scale, -i * 16 * scale);
     ctx.stroke();
+  }
+
+  if (mark) {
+    drawThreeStars(
+      ctx, 0, -archCrestHeight(scale) - 16 * scale, 0.72 * scale,
+      mark.color || '#dde5f2', mark.lit, mark.time || 0
+    );
   }
   ctx.restore();
 }

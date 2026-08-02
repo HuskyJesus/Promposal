@@ -133,7 +133,7 @@ export class Game {
    *
    * A scene sets itself up in `enter()`, which happens while the page is
    * covering the screen, and plays its opening beat in `begin()`, which runs
-   * once the page has finished turning — otherwise the transition would sit
+   * once the page has finished turning; otherwise the transition would sit
    * on top of the first line of dialogue.
    */
   async goTo(name, payload = {}, { transition = true } = {}) {
@@ -386,7 +386,7 @@ export class Game {
       el('div', { class: 'panel', role: 'dialog', 'aria-label': 'How to play' }, [
         el('h2', { class: 'panel-title', text: 'How to play' }),
         el('div', { class: 'panel-prose' }, [
-          el('p', { text: 'Move with the arrow keys or W A S D. On a phone, hold anywhere on the left half of the screen and drag — a soft circle appears under your thumb.' }),
+          el('p', { text: 'Move with the arrow keys or W A S D. On a phone, hold anywhere on the left half of the screen and drag. A soft circle appears under your thumb.' }),
           el('p', { text: 'When a small star appears above something, you can talk to it, read it, or pick it up. Press the round button at the bottom right, or press Space or Enter.' }),
           el('p', { text: 'Tap the dialogue box to hurry a line along, then again to continue.' }),
           el('p', { text: `The lamp button in the top right asks ${config.guideName} for a hint. Ask more than once and he becomes far less mysterious about it.` }),

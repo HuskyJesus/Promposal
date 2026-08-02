@@ -22,11 +22,32 @@ let failures = 0;
 function check(name, condition, detail = '') {
   const ok = Boolean(condition);
   if (!ok) failures += 1;
-  checks.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail && !ok ? ` — ${detail}` : ''}`);
-  console.log(`${ok ? '  ok' : 'FAIL'}  ${name}${detail && !ok ? ` — ${detail}` : ''}`);
+  checks.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail && !ok ? `: ${detail}` : ''}`);
+  console.log(`${ok ? '  ok' : 'FAIL'}  ${name}${detail && !ok ? `: ${detail}` : ''}`);
 }
 
 const browser = await chromium.launch(CHROME ? { executablePath: CHROME } : {});
+
+/**
+ * The two halves of the mural are deliberately hung in different orders, so a
+ * test cannot join row N to row N. These read the real pairing out of the game
+ * and then click the panels by the words printed on them, exactly as a person
+ * reading the wall would.
+ */
+async function muralPairing(p) {
+  return p.evaluate(async () => {
+    const mod = await import(new URL('src/puzzles/muralPairs.js', document.baseURI).href);
+    return mod.MURAL_PAIRS.map((pair) => ({ dark: pair.dark.label, light: pair.light.label }));
+  });
+}
+
+async function joinMural(p, dark, light, settle = 380) {
+  await p.locator('#overlay .mural-tile[data-side="dark"]', { hasText: dark }).click();
+  await p.waitForTimeout(140);
+  await p.locator('#overlay .mural-tile[data-side="light"]', { hasText: light }).click();
+  await p.waitForTimeout(settle);
+}
+
 
 async function open(viewport = { width: 390, height: 844 }, seed = null) {
   const page = await browser.newPage({ viewport, deviceScaleFactor: 2, hasTouch: true });
@@ -86,7 +107,7 @@ const state = (p) => p.evaluate(() => {
 
 /* ========================================================================= */
 
-console.log('\n— Hammering the interface —');
+console.log('\n[ Hammering the interface ]');
 {
   const p = await open();
   await startFresh(p);
@@ -162,7 +183,7 @@ console.log('\n— Hammering the interface —');
   await p.close();
 }
 
-console.log('\n— Rotating at bad moments —');
+console.log('\n[ Rotating at bad moments ]');
 {
   const p = await open();
   await startFresh(p);
@@ -203,7 +224,7 @@ console.log('\n— Rotating at bad moments —');
   await p.close();
 }
 
-console.log('\n— Refreshing at the worst moment —');
+console.log('\n[ Refreshing at the worst moment ]');
 {
   // Right after the last moonflower, before the ceremony finishes.
   const p = await open({ width: 390, height: 844 });
@@ -240,7 +261,7 @@ console.log('\n— Refreshing at the worst moment —');
   await p.close();
 }
 
-console.log('\n— Puzzles out of order and hints exhausted —');
+console.log('\n[ Puzzles out of order and hints exhausted ]');
 {
   const p = await open({ width: 390, height: 844 }, {
     chapter: 'hall', fragments: ['woods', 'cottage'],
@@ -261,12 +282,11 @@ console.log('\n— Puzzles out of order and hints exhausted —');
   await clearDialogue(p);
   await p.locator('#overlay .mural-board').waitFor({ timeout: 10000 });
 
-  // Every wrong pairing in a row, then every hint.
-  for (let i = 0; i < 3; i++) {
-    await p.locator('#overlay .mural-tile[data-side="dark"]').nth(0).click();
-    await p.waitForTimeout(100);
-    await p.locator('#overlay .mural-tile[data-side="light"]').nth(i + 1).click();
-    await p.waitForTimeout(200);
+  const pairs = await muralPairing(p);
+
+  // Every wrong pairing for one panel in a row, then every hint.
+  for (const pair of pairs.slice(1)) {
+    await joinMural(p, pairs[0].dark, pair.light, 200);
   }
   check('repeated wrong pairings match nothing',
     (await p.locator('#overlay .mural-tile[data-matched="true"]').count()) === 0);
@@ -289,12 +309,7 @@ console.log('\n— Puzzles out of order and hints exhausted —');
   check('the strongest mural hint names a pair that really joins', named);
 
   // Solve it, then confirm the fragment cannot be taken twice.
-  for (let i = 0; i < 4; i++) {
-    await p.locator('#overlay .mural-tile[data-side="dark"]:not([data-matched="true"])').first().click();
-    await p.waitForTimeout(110);
-    await p.locator('#overlay .mural-tile[data-side="light"]').nth(i).click();
-    await p.waitForTimeout(320);
-  }
+  for (const pair of pairs) await joinMural(p, pair.dark, pair.light, 320);
   await p.waitForTimeout(1800);
   await clearDialogue(p);
   await interact(p, 'mural');
@@ -323,7 +338,7 @@ console.log('\n— Puzzles out of order and hints exhausted —');
   await p.close();
 }
 
-console.log('\n— Ending replayed and reset —');
+console.log('\n[ Ending replayed and reset ]');
 {
   const p = await open({ width: 390, height: 844 }, {
     chapter: 'garden', fragments: ['woods', 'cottage', 'hall'],
@@ -369,7 +384,7 @@ console.log('\n— Ending replayed and reset —');
   await p.close();
 }
 
-console.log('\n— Older and partial saves —');
+console.log('\n[ Older and partial saves ]');
 {
   // A save written by an earlier build, missing fields this one expects.
   const p = await open({ width: 390, height: 844 });
@@ -405,7 +420,7 @@ console.log('\n— Older and partial saves —');
   await p.close();
 }
 
-console.log('\n— Muted, keyboard only, reduced motion —');
+console.log('\n[ Muted, keyboard only, reduced motion ]');
 {
   const p = await browser.newPage({
     viewport: { width: 375, height: 667 }, deviceScaleFactor: 2, reducedMotion: 'reduce'
@@ -454,7 +469,7 @@ console.log('\n— Muted, keyboard only, reduced motion —');
   await p.close();
 }
 
-console.log('\n— Nothing is walled off —');
+console.log('\n[ Nothing is walled off ]');
 {
   /*
    * Scenery carries colliders. One badly placed hedge, pond or urn could fence
@@ -514,7 +529,7 @@ console.log('\n— Nothing is walled off —');
   }
 }
 
-console.log('\n— The shipped build —');
+console.log('\n[ The shipped build ]');
 {
   // Deliberately *not* instrumented: this is exactly what a player downloads.
   const p = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });

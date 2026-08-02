@@ -1,7 +1,7 @@
 /**
- * A tiny pooled particle system. Everything magical in the game — fireflies,
- * drifting leaves, dust in a sunbeam, the sparkle when a fragment appears —
- * comes out of here.
+ * A tiny pooled particle system. Everything magical in the game comes out of
+ * here: fireflies, drifting leaves, dust in a sunbeam, and the sparkle when a
+ * fragment appears.
  */
 
 export class ParticleField {

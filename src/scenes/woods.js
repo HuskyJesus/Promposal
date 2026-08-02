@@ -1,5 +1,5 @@
 /**
- * Chapter one — The Whispering Woods.
+ * Chapter one, The Whispering Woods.
  *
  * An open forest to wander, three hidden moonflowers, a signpost that tells
  * you roughly where they are, and several woodland residents with opinions.
@@ -9,7 +9,7 @@ import { WorldScene } from '../engine/worldScene.js';
 import { createBuffer } from '../engine/renderer.js';
 import {
   paintGround, paintNightSky, paintStonePath, drawMushroom, drawFlowerCluster,
-  drawFern, drawLantern, drawMoon, drawPersonalStar, drawArch, drawThreeStars,
+  drawFern, drawLantern, drawMoon, drawPersonalStar, drawArch,
   paintMist, drawLightPool, makeRandom, makeSprite, rgba, mix, starPath
 } from '../engine/art.js';
 import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
@@ -335,7 +335,7 @@ export class WoodsScene extends WorldScene {
 
   #buildColliders() {
     this.colliders = [];
-    // Everything above the shoreline — treeline, sky and water — is off limits.
+    // Everything above the shoreline is off limits: treeline, sky and water.
     this.addCollider(-80, -80, WORLD.width + 160, SHORE_Y + 80);
     this.addBoundaryWalls(6);
 
@@ -401,10 +401,14 @@ export class WoodsScene extends WorldScene {
         ctx.moveTo(x - 60, y - 96);
         ctx.quadraticCurveTo(x, y - 116, x + 60, y - 92);
         ctx.stroke();
+        // One, two, three, left to right, then a beat of dark before it starts
+        // over. Every other mention of the lanterns in the game says the same
+        // thing, so the animation has to say it too.
+        const STEP = 0.7;
+        const CYCLE = STEP * 4;
+        const beat = time % CYCLE;
         for (let i = 0; i < 3; i++) {
-          // A rolling cycle so exactly one lantern leads at any moment.
-          const phase = (time * 0.6 + i * (1 / 3)) % 1;
-          const lit = phase < 0.75;
+          const lit = beat >= i * STEP && beat < STEP * 3.4;
           drawLantern(ctx, x - 44 + i * 44, y - 60 + Math.abs(i - 1) * 6, 1, lit, time + i);
         }
       }
@@ -423,9 +427,8 @@ export class WoodsScene extends WorldScene {
         drawArch(ctx, LANDMARKS.arch.x, LANDMARKS.arch.y + 10, 1.2, {
           stoneDark: '#5c5566',
           doorway: open ? '#2a1f36' : '#1a1626'
-        }, open ? rgba('#e9b45f', 0.32) : null);
-        drawThreeStars(ctx, LANDMARKS.arch.x, LANDMARKS.arch.y - 118, 0.9, '#dde5f2',
-          [open, open, open], time);
+        }, open ? rgba('#e9b45f', 0.32) : null,
+        { lit: [open, open, open], time });
       }
     });
 
@@ -511,7 +514,7 @@ export class WoodsScene extends WorldScene {
   #theoChat() {
     const remaining = MOONFLOWERS.filter((f) => !this.game.save.has('moonflowers', f.id));
     if (remaining.length === 0 && this.game.save.hasFlag('woodsComplete')) return WOODS.toCottage;
-    if (remaining.length === 3) return [{ who: 'theo', text: 'Three moonflowers. The signpost near the clearing lists where they like to grow — whoever carved it was oddly specific.' }];
+    if (remaining.length === 3) return [{ who: 'theo', text: 'Three moonflowers. The signpost near the clearing lists where they like to grow. Whoever carved it was oddly specific.' }];
     if (remaining.length === 2) return [{ who: 'theo', mood: 'happy', text: 'One down. Two to go. I am pacing myself so as not to peak too early with the encouragement.' }];
     return [{ who: 'theo', mood: 'proud', text: 'One left. I can feel it. Admittedly I can feel it because I can see it from here, but still.' }];
   }

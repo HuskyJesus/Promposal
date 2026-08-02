@@ -3,7 +3,7 @@
  * modules; this file only draws them, listens for taps and keys, and reports
  * back what happened.
  *
- * Every puzzle here is tap-or-key only — nothing needs to be dragged.
+ * Every puzzle here is tap-or-key only. Nothing needs to be dragged.
  */
 
 import { el } from '../engine/ui.js';
@@ -50,7 +50,7 @@ function setFeedback(node, text, tone = 'neutral') {
 }
 
 /* =========================================================================
-   Chapter 2 — the Trial of Stone, Scroll and Shears
+   Chapter 2: the Trial of Stone, Scroll and Shears
    ========================================================================= */
 
 export function runGuardianTrial(game) {
@@ -177,7 +177,7 @@ export function runGuardianTrial(game) {
 }
 
 /* =========================================================================
-   Chapter 3a — the divided mural
+   Chapter 3a: the divided mural
    ========================================================================= */
 
 export function runMuralPuzzle(game, { onProgress } = {}) {
@@ -297,7 +297,7 @@ export function runMuralPuzzle(game, { onProgress } = {}) {
 }
 
 /* =========================================================================
-   Chapter 3b — the Storykeeper's Trial
+   Chapter 3b: the Storykeeper's Trial
    ========================================================================= */
 
 export function runStorykeeperTrial(game) {
@@ -357,7 +357,7 @@ export function runStorykeeperTrial(game) {
         button.dataset.state = 'wrong';
         button.disabled = true;
         game.audio.gentleNo();
-        setFeedback(feedback, 'Not quite — the hall does not mind at all. Try another.', 'soft');
+        setFeedback(feedback, 'Not quite. The hall does not mind at all. Try another.', 'soft');
       }
     };
 
@@ -373,7 +373,7 @@ export function runStorykeeperTrial(game) {
     });
 
     render();
-    setFeedback(feedback, 'Three questions. There is no penalty for a wrong answer — the hall is only curious.', 'neutral');
+    setFeedback(feedback, 'Three questions. There is no penalty for a wrong answer; the hall is only curious.', 'neutral');
 
     return el('div', { class: 'panel', role: 'dialog', 'aria-label': "The Storykeeper's Trial" }, [
       el('h2', { class: 'panel-title', text: "The Storykeeper's Trial" }),
