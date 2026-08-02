@@ -11,7 +11,8 @@ import { createBuffer } from '../engine/renderer.js';
 import {
   paintGround, paintNightSky, paintStonePath, drawFlowerCluster, drawFern, drawMoon,
   drawPersonalStar, drawCastleSilhouette, drawLantern, drawThreeStars, drawVine,
-  paintMist, drawLightPool, drawClouds, makeRandom, makeSprite, rgba, starPath
+  paintMist, drawLightPool, drawClouds, makeRandom, makeSprite, rgba, starPath,
+  paintHedgeWall, drawRoseArch, paintPool, drawTopiary, paintParterre
 } from '../engine/art.js';
 import { SCENE_THEMES, PALETTE } from '../engine/theme.js';
 import { GARDEN } from '../data/dialogue.js';
@@ -32,6 +33,47 @@ const THEME = SCENE_THEMES.garden;
 const DAIS = { x: 560, y: 380 };
 const STAR = { x: 800, y: 96 };
 const NEIGHBOUR = { x: 856, y: 124 };
+
+/* The garden is laid out formally: a hedged enclosure, an avenue of rose
+   arches leading to the dais, two still pools, and beds either side. Every
+   piece here is placed so the walk to the dais is framed the whole way. */
+
+const HEDGE_PALETTE = { leaf: '#2f6a4e', leafDark: '#193c2d', crown: '#4d8d61' };
+const ROSE_PALETTE = {
+  wood: '#5b4630', woodLight: '#7d6144', leaf: '#3d7c57', leafDark: '#245139',
+  bloom: '#f0d5ea', bloomWarm: '#ffe6b8'
+};
+const TOPIARY_PALETTE = {
+  leaf: '#3d7c57', leafDark: '#22503a', crown: '#5da074', stone: '#b3aa98', stoneDark: '#877f6f'
+};
+
+/** Rose arbours over the central avenue, nearest the entrance first. */
+const ARCHES = [
+  { x: 560, y: 704, scale: 1.12, seed: 17 },
+  { x: 560, y: 470, scale: 1.2, seed: 23 }
+];
+
+/** Urns: stars flank the dais, clipped balls mark the arches. */
+const TOPIARIES = [
+  { x: 452, y: 398, scale: 1, seed: 31, shape: 'star' },
+  { x: 668, y: 398, scale: 1, seed: 37, shape: 'star' },
+  { x: 486, y: 700, scale: 0.82, seed: 41, shape: 'ball' },
+  { x: 634, y: 700, scale: 0.82, seed: 43, shape: 'ball' },
+  { x: 486, y: 468, scale: 0.86, seed: 47, shape: 'ball' },
+  { x: 634, y: 468, scale: 0.86, seed: 53, shape: 'ball' }
+];
+
+const POOLS = [
+  { x: 196, y: 432, rx: 86, ry: 48, seed: 61 },
+  { x: 924, y: 432, rx: 86, ry: 48, seed: 67 }
+];
+
+const BEDS = [
+  { x: 228, y: 682, w: 210, h: 96, seed: 71 },
+  { x: 892, y: 682, w: 210, h: 96, seed: 73 },
+  { x: 392, y: 604, w: 120, h: 66, seed: 79 },
+  { x: 728, y: 604, w: 120, h: 66, seed: 83 }
+];
 
 export class GardenScene extends WorldScene {
   constructor(game) {
@@ -66,14 +108,19 @@ export class GardenScene extends WorldScene {
 
     this.lightPools = [
       { x: DAIS.x, y: DAIS.y + 26, r: 96 },
-      { x: 180, y: 640, r: 60 }, { x: 940, y: 660, r: 60 }, { x: 560, y: 740, r: 66 }
+      { x: 196, y: 432, r: 70 }, { x: 924, y: 432, r: 70 },
+      { x: 228, y: 682, r: 62 }, { x: 892, y: 682, r: 62 }, { x: 560, y: 756, r: 66 }
     ];
     this.seedTufts({
-      count: 130,
-      bounds: { x: 30, y: SHORE_Y + 20, width: WORLD.width - 60, height: WORLD.height - SHORE_Y - 50 },
+      count: 120,
+      bounds: { x: 96, y: SHORE_Y + 110, width: WORLD.width - 192, height: WORLD.height - SHORE_Y - 140 },
       colors: ['#357a5a', '#2c6a4c'],
       blooms: THEME.flowers,
-      seed: 8123
+      seed: 8123,
+      avoid: [
+        ...POOLS.map((p) => ({ x: p.x, y: p.y, rx: p.rx + 18, ry: p.ry + 16 })),
+        ...BEDS.map((b) => ({ x: b.x, y: b.y, rx: b.w / 2 + 12, ry: b.h / 2 + 10 }))
+      ]
     });
 
     this.drifts = [];
@@ -132,27 +179,41 @@ export class GardenScene extends WorldScene {
       }
     });
 
-    this.hedgeSprite = makeSprite({
-      width: 180, height: 120, anchorX: 90, anchorY: 96,
+    // A spray of climbing roses hanging into the top corners of the screen,
+    // parallaxed a little in front of everything else.
+    this.foreground = makeSprite({
+      width: 340, height: 210, anchorX: 0, anchorY: 0,
       paint: (ctx) => {
-        const random = makeRandom(88);
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath();
-        ctx.ellipse(0, 2, 74, 12, 0, 0, Math.PI * 2);
-        ctx.fill();
-        for (let pass = 0; pass < 2; pass++) {
-          ctx.fillStyle = pass ? '#2f6a4e' : '#204a38';
+        const random = makeRandom(9191);
+        ctx.strokeStyle = '#12281f';
+        ctx.lineCap = 'round';
+        for (let branch = 0; branch < 3; branch++) {
+          const y = -24 + branch * 32;
+          ctx.lineWidth = 8 - branch * 2;
           ctx.beginPath();
-          for (let i = 0; i < 9; i++) {
-            const cx = -70 + i * 18;
-            const cy = -34 - random() * 16 + (pass ? -6 : 0);
-            ctx.moveTo(cx + 20, cy);
-            ctx.arc(cx, cy, 20 - pass * 3, 0, Math.PI * 2);
+          ctx.moveTo(-30, y);
+          ctx.quadraticCurveTo(110, y + 44 + branch * 12, 240 - branch * 44, y + 26 + branch * 30);
+          ctx.stroke();
+          for (let leaf = 0; leaf < 11; leaf++) {
+            const t = 0.15 + random() * 0.85;
+            const lx = -30 + (270 - branch * 44) * t;
+            const ly = y + (44 + branch * 14) * t * (0.7 + random() * 0.5);
+            ctx.save();
+            ctx.translate(lx, ly);
+            ctx.rotate(random() * Math.PI);
+            ctx.fillStyle = random() < 0.5 ? '#123024' : '#1a4030';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 15 + random() * 11, 7 + random() * 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            if (random() < 0.16) {
+              ctx.fillStyle = '#3c2b3a';
+              ctx.beginPath();
+              ctx.arc(lx + 6, ly - 4, 5 + random() * 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
           }
-          ctx.fill();
         }
-        drawFlowerCluster(ctx, -30, -40, 1, ['#f4dff0', '#ffe9b0'], 4, 3);
-        drawFlowerCluster(ctx, 34, -46, 1, ['#f4dff0', '#d98a9a'], 6, 3);
       }
     });
   }
@@ -191,22 +252,65 @@ export class GardenScene extends WorldScene {
         { x: 300, y: 560 }, { x: 430, y: 540 }, { x: 560, y: 520 }, { x: 690, y: 540 }, { x: 820, y: 560 }
       ], { width: 34, stone: '#b3aa98', grout: '#2a4a3a', seed: 6 });
 
+      // Two still pools, each holding the moon and the personal star. The
+      // reflection is painted inside the water and then veiled, so it reads as
+      // a reflection rather than a picture lying on the grass.
+      for (const pool of POOLS) {
+        paintPool(ctx, pool.x, pool.y, pool.rx, pool.ry, {
+          water: '#14303c', waterLight: '#2a5f6e', rim: '#b3aa98', rimDark: '#7d7768',
+          seed: pool.seed,
+          reflect: (rctx) => {
+            drawMoon(rctx, pool.x - pool.rx * 0.34, pool.y + pool.ry * 0.1, 15, 0);
+            drawPersonalStar(rctx, pool.x + pool.rx * 0.4, pool.y - pool.ry * 0.24, 0, 0.5);
+          }
+        });
+      }
+
+      // Bordered beds massed with blooms, framing the avenue.
+      for (const bed of BEDS) {
+        paintParterre(ctx, bed.x, bed.y, bed.w, bed.h, {
+          edge: '#2f6a4e', edgeDark: '#1c4231', soil: '#26201a',
+          colors: [PALETTE.lavenderLight, '#ffe6b8', '#f0d5ea', PALETTE.lavender],
+          seed: bed.seed
+        });
+      }
+
+      // Loose planting between the formal pieces, kept off the avenue, the
+      // pools and the beds so nothing grows through anything.
+      const clear = [
+        ...POOLS.map((p) => ({ x: p.x, y: p.y, rx: p.rx + 24, ry: p.ry + 20 })),
+        ...BEDS.map((b) => ({ x: b.x, y: b.y, rx: b.w / 2 + 16, ry: b.h / 2 + 14 }))
+      ];
+      const blocked = (x, y) => clear.some((c) =>
+        ((x - c.x) / c.rx) ** 2 + ((y - c.y) / c.ry) ** 2 < 1);
+
       const random = makeRandom(2222);
-      for (let i = 0; i < 150; i++) {
-        const x = random() * width;
-        const y = SHORE_Y + random() * (height - SHORE_Y - 20);
-        if (Math.abs(x - 560) < 46 && y > 380) continue;
+      for (let i = 0; i < 170; i++) {
+        const x = 40 + random() * (width - 80);
+        const y = SHORE_Y + 90 + random() * (height - SHORE_Y - 110);
+        if (Math.abs(x - 560) < 52) continue;
+        if (blocked(x, y)) continue;
         const roll = random();
-        if (roll < 0.5) {
+        if (roll < 0.46) {
           drawFlowerCluster(ctx, x, y, 0.7 + random() * 0.6, THEME.flowers, 300 + i, 4);
-        } else if (roll < 0.8) {
+        } else if (roll < 0.78) {
           drawFern(ctx, x, y, 0.6 + random() * 0.6, '#2f6a4e', 400 + i);
         }
       }
 
-      drawVine(ctx, [{ x: 80, y: 700 }, { x: 96, y: 650 }, { x: 84, y: 600 }, { x: 100, y: 550 }], 1.4,
+      // The enclosure: a clipped hedge all the way round, open only where the
+      // avenue enters and behind the dais, where the sky should show through.
+      const hedge = { ...HEDGE_PALETTE, thickness: 54, height: 58 };
+      paintHedgeWall(ctx, [{ x: -30, y: 332 }, { x: 430, y: 330 }], { ...hedge, seed: 101 });
+      paintHedgeWall(ctx, [{ x: 690, y: 330 }, { x: 1150, y: 332 }], { ...hedge, seed: 103 });
+      paintHedgeWall(ctx, [{ x: 44, y: 306 }, { x: 40, y: 620 }, { x: 46, y: 830 }],
+        { ...hedge, thickness: 48, seed: 107 });
+      paintHedgeWall(ctx, [{ x: 1076, y: 306 }, { x: 1080, y: 620 }, { x: 1074, y: 830 }],
+        { ...hedge, thickness: 48, seed: 109 });
+
+      drawVine(ctx, [{ x: 92, y: 700 }, { x: 104, y: 650 }, { x: 92, y: 600 }, { x: 106, y: 552 }], 1.4,
         { stem: '#2f6a4e', leaf: '#4f8f63', leafDark: '#356b4c' }, 51);
-      drawVine(ctx, [{ x: 1040, y: 700 }, { x: 1024, y: 648 }, { x: 1038, y: 598 }], 1.4,
+      drawVine(ctx, [{ x: 1028, y: 700 }, { x: 1014, y: 648 }, { x: 1026, y: 598 }], 1.4,
         { stem: '#2f6a4e', leaf: '#4f8f63', leafDark: '#356b4c' }, 53);
 
       paintMist(ctx, width, height, THEME.mist, 41, 3, { top: SHORE_Y - 50, height: 150 });
@@ -217,18 +321,47 @@ export class GardenScene extends WorldScene {
     this.colliders = [];
     this.addCollider(-80, -80, WORLD.width + 160, SHORE_Y + 70);
     this.addBoundaryWalls(6);
-    this.hedges = [
-      { x: 150, y: 400 }, { x: 970, y: 400 }, { x: 150, y: 640 }, { x: 970, y: 640 }
-    ];
-    for (const hedge of this.hedges) this.addCollider(hedge.x - 74, hedge.y - 18, 148, 22);
+
+    // The enclosing hedge, a little inside the painted line so she never looks
+    // as though she is standing in it.
+    this.addCollider(-40, SHORE_Y + 60, 128, WORLD.height);
+    this.addCollider(WORLD.width - 88, SHORE_Y + 60, 128, WORLD.height);
+
+    for (const pool of POOLS) {
+      this.addCollider(pool.x - pool.rx - 6, pool.y - pool.ry * 0.7, (pool.rx + 6) * 2, pool.ry * 1.7);
+    }
+    for (const bed of BEDS) {
+      this.addCollider(bed.x - bed.w / 2, bed.y - bed.h / 2, bed.w, bed.h);
+    }
+    for (const arch of ARCHES) {
+      const half = 46 * arch.scale;
+      this.addCollider(arch.x - half - 7, arch.y - 12, 14, 20);
+      this.addCollider(arch.x + half - 7, arch.y - 12, 14, 20);
+    }
+    for (const urn of TOPIARIES) {
+      this.addCollider(urn.x - 16 * urn.scale, urn.y - 12 * urn.scale, 32 * urn.scale, 16 * urn.scale);
+    }
   }
 
   #buildScenery() {
     this.entities = [];
-    for (const hedge of this.hedges) {
-      this.addEntity({ y: hedge.y, draw: (ctx) => this.hedgeSprite.draw(ctx, hedge.x, hedge.y) });
-    }
     this.addEntity({ y: DAIS.y, draw: (ctx) => this.daisSprite.draw(ctx, DAIS.x, DAIS.y) });
+
+    for (const urn of TOPIARIES) {
+      this.addEntity({
+        y: urn.y,
+        draw: (ctx) => drawTopiary(ctx, urn.x, urn.y, urn.scale, TOPIARY_PALETTE, urn.seed, urn.shape)
+      });
+    }
+
+    // The arches are depth-sorted like everything else, so she walks under
+    // them: in front of the far post, behind the near one.
+    for (const arch of ARCHES) {
+      this.addEntity({
+        y: arch.y,
+        draw: (ctx) => drawRoseArch(ctx, arch.x, arch.y, arch.scale, ROSE_PALETTE, arch.seed)
+      });
+    }
 
     for (const lantern of LANTERNS) {
       this.addEntity({

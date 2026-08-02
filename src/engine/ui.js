@@ -430,7 +430,7 @@ export class DialogueBox {
       ...this.current.choices.map((choice) =>
         el('button', {
           type: 'button',
-          text: choice.label,
+          text: fill(choice.label),
           onClick: () => {
             this.audio.uiTap();
             this.chosen = choice.id;

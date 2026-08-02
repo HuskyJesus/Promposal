@@ -11,6 +11,7 @@
  */
 
 import { chromium } from 'playwright';
+import { instrument, tokenLeaks } from './instrument.mjs';
 
 const BASE = process.env.GAME_URL || 'http://127.0.0.1:4173/index.html';
 const CHROME = process.env.CHROMIUM_PATH || undefined;
@@ -37,7 +38,8 @@ async function open(viewport = { width: 390, height: 844 }, seed = null) {
       localStorage.setItem('unwritten-page:progress:v1', raw);
     }, JSON.stringify({ version: 1, startedAt: 1, gossipHeard: [], hintCounts: {}, moonflowers: [], fragments: [], flags: {}, ...seed }));
   }
-  await page.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+  await instrument(page);
+  await page.goto(`${BASE}`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(700);
   page.errors = errors;
   return page;
@@ -416,7 +418,8 @@ console.log('\n— Muted, keyboard only, reduced motion —');
       sound: false, music: false, reducedMotion: true, textSpeed: 'instant'
     }));
   });
-  await p.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+  await instrument(p);
+  await p.goto(`${BASE}`, { waitUntil: 'networkidle' });
   await p.waitForTimeout(800);
 
   // Reach and press Start using only the keyboard.
@@ -450,6 +453,92 @@ console.log('\n— Muted, keyboard only, reduced motion —');
   check('muted run: no console errors', errors.length === 0, errors.join(' | '));
   await p.close();
 }
+
+console.log('\n— Nothing is walled off —');
+{
+  /*
+   * Scenery carries colliders. One badly placed hedge, pond or urn could fence
+   * off the thing she has to reach and there would be no way out but a reset,
+   * so every chapter is flood-filled from where she starts: if an interactable
+   * is not reachable on foot, the run fails.
+   */
+  const REACH = [
+    { chapter: 'woods', seed: { flags: { metTheo: true } } },
+    { chapter: 'cottage', seed: { fragments: ['woods'] } },
+    { chapter: 'hall', seed: { fragments: ['woods', 'cottage'] } },
+    { chapter: 'garden', seed: { moonflowers: ['a', 'b', 'c'], fragments: ['woods', 'cottage', 'hall'] } }
+  ];
+
+  for (const { chapter, seed } of REACH) {
+    const p = await open({ width: 844, height: 390 }, { chapter, ...seed });
+    await p.locator('#overlay button', { hasText: 'Continue' }).click();
+    await p.locator('#hud').waitFor({ state: 'visible', timeout: 15000 });
+    await p.waitForFunction((want) => window.unwrittenPage.game.scene?.name === want, chapter, { timeout: 15000 });
+    await clearDialogue(p);
+
+    const result = await p.evaluate(() => {
+      const s = window.unwrittenPage.game.scene;
+      const STEP = 8;
+      const { width: W, height: H } = s.world;
+      const blockedAt = (x, y) => {
+        if (x < 4 || y < 4 || x > W - 4 || y > H - 4) return true;
+        return s.colliders.some((c) =>
+          x + 7 > c.x && x - 7 < c.x + c.width && y + 5 > c.y && y - 5 < c.y + c.height);
+      };
+      const start = { x: Math.round(s.player.x / STEP) * STEP, y: Math.round(s.player.y / STEP) * STEP };
+      const seen = new Set([`${start.x},${start.y}`]);
+      const queue = [start];
+      while (queue.length) {
+        const n = queue.pop();
+        for (const [dx, dy] of [[STEP, 0], [-STEP, 0], [0, STEP], [0, -STEP]]) {
+          const nx = n.x + dx;
+          const ny = n.y + dy;
+          const k = `${nx},${ny}`;
+          if (seen.has(k) || blockedAt(nx, ny)) continue;
+          seen.add(k);
+          queue.push({ x: nx, y: ny });
+        }
+      }
+      const cells = [...seen].map((k) => k.split(',').map(Number));
+      const unreachable = s.interactables
+        .filter((i) => !cells.some(([x, y]) => Math.hypot(x - i.x, y - i.y) <= Math.max(12, (i.radius ?? 50) - 10)))
+        .map((i) => i.id);
+      return { scene: s.name, cells: cells.length, unreachable };
+    });
+
+    check(`${chapter}: the heroine starts somewhere she can walk`, result.cells > 200, `${result.cells} cells`);
+    check(`${chapter}: every interactable can be reached on foot`,
+      result.unreachable.length === 0, result.unreachable.join(', '));
+    check(`${chapter}: no console errors`, p.errors.length === 0, p.errors.join(' | '));
+    await p.close();
+  }
+}
+
+console.log('\n— The shipped build —');
+{
+  // Deliberately *not* instrumented: this is exactly what a player downloads.
+  const p = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+  const errors = [];
+  p.on('pageerror', (e) => errors.push(e.message));
+  p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  await p.goto(`${BASE}`, { waitUntil: 'networkidle' });
+  await p.waitForTimeout(800);
+
+  check('no test seam is exposed', await p.evaluate(() => window.unwrittenPage === undefined));
+  check('no globals are leaked', await p.evaluate(() =>
+    ['game', 'config', 'Game', 'debug', 'DEBUG', 'scene'].every((k) => !(k in window))));
+  const q = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await q.goto(`${BASE}?test=1&debug=1&dev=1`, { waitUntil: 'networkidle' });
+  await q.waitForTimeout(600);
+  check('a query string does not unlock anything',
+    await q.evaluate(() => window.unwrittenPage === undefined && !('game' in window)));
+  await q.close();
+  check('the title screen still renders', (await p.locator('#overlay button', { hasText: 'Start the story' }).count()) > 0);
+  check('shipped build: no console errors', errors.length === 0, errors.join(' | '));
+  await p.close();
+}
+
+check('no unexpanded {token} ever reached the screen', tokenLeaks().length === 0, tokenLeaks().join(' | '));
 
 await browser.close();
 

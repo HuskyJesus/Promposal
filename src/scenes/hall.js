@@ -518,13 +518,17 @@ export class HallScene extends WorldScene {
 
   /** The hall exists in two painted versions and fades between them. */
   drawBackground(ctx) {
-    ctx.drawImage(this.monoBackground, 0, 0);
-    if (this.colorLevel > 0) {
+    const { width, height } = this.monoBackground;
+    const skirt = (image, alpha = 1) => {
       ctx.save();
-      ctx.globalAlpha = this.colorLevel;
-      ctx.drawImage(this.colourBackground, 0, 0);
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(image, 0, 0);
+      // Carry the floor past the bottom edge; see WorldScene#drawBackground.
+      ctx.drawImage(image, 0, height - 2, width, 2, 0, WORLD.height, width, 260);
       ctx.restore();
-    }
+    };
+    skirt(this.monoBackground);
+    if (this.colorLevel > 0) skirt(this.colourBackground, this.colorLevel);
   }
 
   drawBehind(ctx, time) {

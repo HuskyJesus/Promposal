@@ -118,15 +118,25 @@ export class Renderer {
     };
   }
 
-  /** Keeps the camera inside the world, centring it when the world is small. */
-  followCamera(targetX, targetY, world, lerp = 1) {
+  /**
+   * Keeps the camera inside the world, centring it when the world is small.
+   *
+   * `overscanBottom` lets the view slip that far past the bottom edge. It is
+   * only ever passed the height of the dialogue box, so the strip of nothing
+   * it exposes is the strip the box is already covering — that is what lets
+   * the heroine stay above the words even where she stands at the world's edge.
+   */
+  followCamera(targetX, targetY, world, lerp = 1, overscanBottom = 0) {
     const halfW = this.viewWidth / 2;
     const halfH = this.viewHeight / 2;
     let x = targetX;
     let y = targetY;
     if (world) {
       x = world.width <= this.viewWidth ? world.width / 2 : Math.max(halfW, Math.min(world.width - halfW, x));
-      y = world.height <= this.viewHeight ? world.height / 2 : Math.max(halfH, Math.min(world.height - halfH, y));
+      const lowest = world.height - halfH + overscanBottom;
+      y = world.height <= this.viewHeight
+        ? world.height / 2 + overscanBottom
+        : Math.max(halfH, Math.min(lowest, y));
     }
     this.camera.x += (x - this.camera.x) * lerp;
     this.camera.y += (y - this.camera.y) * lerp;

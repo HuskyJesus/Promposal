@@ -67,7 +67,14 @@ rotating the phone mid-sentence and mid-puzzle, refreshing in the instant
 between collecting the last moonflower and being handed the fragment, pairing
 every wrong mural panel, exhausting every hint, replaying the ending three
 times, resetting a finished game, and loading saves written by an older build
-or naming a chapter that no longer exists.
+or naming a chapter that no longer exists. It finishes by loading the page
+exactly as a player would and checking that the shipped build exposes nothing
+at all — no test seam, no globals, and no query string that unlocks anything.
+
+The game itself contains no test-only code. The browser suites need to read
+game state, so Playwright appends a single line to `src/main.js` as it is
+served (`tests/e2e/instrument.mjs`); nothing in the repository changes, and
+the last section of the resilience suite runs uninstrumented to prove it.
 
 ## Controls
 

@@ -533,6 +533,487 @@ export function drawVine(ctx, points, scale, palette, seed = 11) {
 }
 
 /* -------------------------------------------------------------------------
+   Formal garden
+   ------------------------------------------------------------------------- */
+
+/**
+ * A clipped hedge run following `points`. Built from overlapping clumps with a
+ * lit crown and a shaded base, so a garden wall never reads as a green bar.
+ */
+export function paintHedgeWall(ctx, points, {
+  thickness = 40, height = 46, leaf = '#2f6a4e', leafDark = '#1c4231',
+  crown = '#4f8f63', seed = 71
+} = {}) {
+  const random = makeRandom(seed);
+
+  // Clumps are laid along the run as circles rather than upright ellipses, so
+  // a hedge reads the same whether it runs across the view or away from it.
+  const clumps = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    const span = Math.hypot(b.x - a.x, b.y - a.y);
+    const steps = Math.max(2, Math.round(span / (thickness * 0.3)));
+    const nx = (b.y - a.y) / (span || 1);
+    const ny = -(b.x - a.x) / (span || 1);
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const jitter = (random() - 0.5) * thickness * 0.2;
+      clumps.push({
+        x: lerp(a.x, b.x, t) + nx * jitter,
+        y: lerp(a.y, b.y, t) + ny * jitter,
+        r: thickness * (0.46 + random() * 0.16),
+        h: height * (0.86 + random() * 0.24),
+        top: random() < 0.5
+      });
+    }
+  }
+
+  const disc = (c, r, dy) => {
+    ctx.moveTo(c.x + r, c.y + dy);
+    ctx.arc(c.x, c.y + dy, r, 0, Math.PI * 2);
+  };
+
+  // Shadow on the lawn at the foot of the hedge.
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  for (const c of clumps) disc(c, c.r * 1.04, 6);
+  ctx.fill();
+
+  // The dark body, drawn as one union so the seams disappear.
+  ctx.fillStyle = leafDark;
+  ctx.beginPath();
+  for (const c of clumps) disc(c, c.r, -c.h * 0.36);
+  ctx.fill();
+
+  // Mid-tone leaves gathered toward the moon side.
+  ctx.fillStyle = leaf;
+  ctx.beginPath();
+  for (const c of clumps) disc(c, c.r * 0.84, -c.h * 0.56);
+  ctx.fill();
+
+  // The lit crown is a continuous ribbon along the run, not one highlight per
+  // clump — dots would bead up the moment a hedge ran away from the camera.
+  ctx.save();
+  ctx.strokeStyle = crown;
+  ctx.lineWidth = thickness * 0.4;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.globalAlpha = 0.85;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const x = p.x - thickness * 0.14;
+    const y = p.y - height * 0.72;
+    return i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.stroke();
+  ctx.restore();
+
+  // A little broken texture along that crown so it is not a painted stripe.
+  ctx.fillStyle = leaf;
+  ctx.beginPath();
+  for (const c of clumps) {
+    if (c.top) continue;
+    ctx.moveTo(c.x - c.r * 0.14 + c.r * 0.32, c.y - c.h * 0.72);
+    ctx.arc(c.x - c.r * 0.14, c.y - c.h * 0.72, c.r * 0.32, 0, Math.PI * 2);
+  }
+  ctx.fill();
+}
+
+/**
+ * A rose arbour over a path: two posts, a keystone arch, cross-battens and
+ * climbing roses. `openings` are drawn as one piece so the arch stays legible
+ * against a dark lawn.
+ */
+export function drawRoseArch(ctx, x, y, scale = 1, {
+  wood = '#5b4630', woodLight = '#7a5f40', leaf = '#3d7c57', leafDark = '#255139',
+  bloom = '#f0d5ea', bloomWarm = '#ffe6b8'
+} = {}, seed = 17) {
+  const random = makeRandom(seed);
+  const halfWidth = 46 * scale;
+  const height = 88 * scale;
+  const springs = height * 0.62;
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Only the posts cast shadow — the opening is meant to be walked through.
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(side * halfWidth, 1, 11 * scale, 4.5 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Frame.
+  ctx.strokeStyle = wood;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 7 * scale;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(side * halfWidth, 0);
+    ctx.lineTo(side * halfWidth, -springs);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(-halfWidth, -springs);
+  ctx.quadraticCurveTo(0, -height - 14 * scale, halfWidth, -springs);
+  ctx.stroke();
+
+  // A lighter edge along the left of every member, so the wood has a form.
+  ctx.strokeStyle = woodLight;
+  ctx.lineWidth = 2.2 * scale;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(side * halfWidth - 2 * scale, -2 * scale);
+    ctx.lineTo(side * halfWidth - 2 * scale, -springs);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(-halfWidth, -springs - 2 * scale);
+  ctx.quadraticCurveTo(0, -height - 17 * scale, halfWidth, -springs - 2 * scale);
+  ctx.stroke();
+
+  // Battens across the crown, set along the curve of the arch itself.
+  ctx.strokeStyle = wood;
+  ctx.lineWidth = 3 * scale;
+  const crownAt = (t) => {
+    const u = 1 - t;
+    return {
+      x: u * u * -halfWidth + 2 * u * t * 0 + t * t * halfWidth,
+      y: u * u * -springs + 2 * u * t * (-height - 14 * scale) + t * t * -springs
+    };
+  };
+  for (let i = 1; i <= 5; i++) {
+    const p = crownAt(i / 6);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - 5 * scale);
+    ctx.lineTo(p.x, p.y + 9 * scale);
+    ctx.stroke();
+  }
+
+  // Two horizontal rails on each post, so the trellis reads as built.
+  ctx.lineWidth = 2.4 * scale;
+  for (const t of [0.34, 0.68]) {
+    const py = -springs * t;
+    ctx.beginPath();
+    ctx.moveTo(-halfWidth, py);
+    ctx.lineTo(-halfWidth + 13 * scale, py);
+    ctx.moveTo(halfWidth, py);
+    ctx.lineTo(halfWidth - 13 * scale, py);
+    ctx.stroke();
+  }
+
+  // Climbing growth: leaves first, then blooms, gathered at the crown.
+  const points = [];
+  for (let i = 0; i <= 26; i++) {
+    const t = i / 26;
+    if (t < 0.34) {
+      points.push({ x: -halfWidth, y: -t / 0.34 * springs });
+    } else if (t > 0.66) {
+      points.push({ x: halfWidth, y: -(1 - t) / 0.34 * springs });
+    } else {
+      const u = (t - 0.34) / 0.32;
+      const cx = lerp(-halfWidth, halfWidth, u);
+      const cy = -springs - Math.sin(u * Math.PI) * (height - springs + 14 * scale);
+      points.push({ x: cx, y: cy });
+    }
+  }
+  for (const p of points) {
+    for (let l = 0; l < 2; l++) {
+      const a = random() * Math.PI * 2;
+      ctx.fillStyle = l ? leafDark : leaf;
+      ctx.save();
+      ctx.translate(p.x + Math.cos(a) * 7 * scale, p.y + Math.sin(a) * 7 * scale);
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 5.4 * scale, 3 * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+  for (const p of points) {
+    if (random() < 0.62) continue;
+    const r = (2.6 + random() * 1.8) * scale;
+    const warm = random() < 0.34;
+    ctx.fillStyle = warm ? bloomWarm : bloom;
+    ctx.beginPath();
+    ctx.arc(p.x + (random() - 0.5) * 12 * scale, p.y + (random() - 0.5) * 12 * scale, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * A still reflecting pool with a cut-stone rim. `reflect` is painted inside the
+ * water and then veiled, which is what sells it as a reflection rather than a
+ * picture lying on the grass.
+ */
+export function paintPool(ctx, x, y, radiusX, radiusY, {
+  water = '#16303f', waterLight = '#27566a', rim = '#b3aa98', rimDark = '#7d7768',
+  seed = 33, reflect = null
+} = {}) {
+  const random = makeRandom(seed);
+
+  ctx.save();
+  // Stone kerb, cut into segments.
+  const segments = Math.max(14, Math.round(radiusX / 5));
+  for (let i = 0; i < segments; i++) {
+    const a0 = (i / segments) * Math.PI * 2;
+    const a1 = ((i + 0.92) / segments) * Math.PI * 2;
+    ctx.fillStyle = i % 2 ? rim : mix(rim, rimDark, 0.45);
+    ctx.beginPath();
+    ctx.ellipse(x, y, radiusX + 8, radiusY + 6, 0, a0, a1);
+    ctx.ellipse(x, y, radiusX - 1, radiusY - 1, 0, a1, a0, true);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Water.
+  ctx.beginPath();
+  ctx.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
+  ctx.clip();
+  const depth = ctx.createLinearGradient(0, y - radiusY, 0, y + radiusY);
+  depth.addColorStop(0, waterLight);
+  depth.addColorStop(1, water);
+  ctx.fillStyle = depth;
+  ctx.fillRect(x - radiusX, y - radiusY, radiusX * 2, radiusY * 2);
+
+  if (reflect) {
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    reflect(ctx);
+    ctx.restore();
+    ctx.fillStyle = rgba(water, 0.34);
+    ctx.fillRect(x - radiusX, y - radiusY, radiusX * 2, radiusY * 2);
+  }
+
+  // Surface ripples.
+  ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 7; i++) {
+    const ry = y - radiusY + random() * radiusY * 2;
+    const half = radiusX * (0.2 + random() * 0.5);
+    const cx = x + (random() - 0.5) * radiusX * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(cx - half, ry);
+    ctx.quadraticCurveTo(cx, ry - 2, cx + half, ry);
+    ctx.stroke();
+  }
+
+  // Lily pads.
+  for (let i = 0; i < 5; i++) {
+    const a = random() * Math.PI * 2;
+    const d = 0.3 + random() * 0.6;
+    const px = x + Math.cos(a) * radiusX * d;
+    const py = y + Math.sin(a) * radiusY * d;
+    const pr = 6 + random() * 5;
+    ctx.fillStyle = i % 2 ? '#2f6a4e' : '#3d7c57';
+    ctx.beginPath();
+    ctx.ellipse(px, py, pr, pr * 0.62, a, 0.35, Math.PI * 2 + 0.05);
+    ctx.closePath();
+    ctx.fill();
+    if (random() < 0.4) {
+      ctx.fillStyle = '#f4e3f0';
+      ctx.beginPath();
+      ctx.arc(px + 1, py - 2, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * A topiary in a stone urn. `shape` is 'star' or 'ball'; the star ones flank
+ * things that matter.
+ */
+export function drawTopiary(ctx, x, y, scale = 1, {
+  leaf = '#3d7c57', leafDark = '#245139', crown = '#5da074', stone = '#b3aa98', stoneDark = '#857f70'
+} = {}, seed = 5, shape = 'ball') {
+  const random = makeRandom(seed);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.26)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 17, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Urn: a footed bowl rather than a block, lit down its left side.
+  const body = ctx.createLinearGradient(-13, 0, 13, 0);
+  body.addColorStop(0, mix(stone, '#ffffff', 0.16));
+  body.addColorStop(0.55, stone);
+  body.addColorStop(1, mix(stoneDark, '#000000', 0.2));
+
+  ctx.fillStyle = mix(stoneDark, '#000000', 0.15);
+  ctx.beginPath();
+  ctx.ellipse(0, -1, 12, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.moveTo(-7, -5);
+  ctx.quadraticCurveTo(-14, -13, -12, -23);
+  ctx.lineTo(12, -23);
+  ctx.quadraticCurveTo(14, -13, 7, -5);
+  ctx.closePath();
+  ctx.fill();
+
+  // Rim and a band of moulding.
+  ctx.fillStyle = mix(stone, '#ffffff', 0.1);
+  ctx.beginPath();
+  ctx.ellipse(0, -24, 14, 4.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = mix(stoneDark, '#000000', 0.1);
+  ctx.beginPath();
+  ctx.ellipse(0, -24, 10.5, 2.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = rgba(stoneDark, 0.7);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-12.5, -18);
+  ctx.quadraticCurveTo(0, -15.6, 12.5, -18);
+  ctx.stroke();
+
+  // Stem.
+  ctx.strokeStyle = '#4b3f2c';
+  ctx.lineWidth = 3.4;
+  ctx.beginPath();
+  ctx.moveTo(0, -23);
+  ctx.lineTo(0, -42);
+  ctx.stroke();
+
+  const paintMass = (cy, r) => {
+    ctx.fillStyle = leafDark;
+    ctx.beginPath();
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      ctx.moveTo(Math.cos(a) * r * 0.45 + r * 0.62, cy + Math.sin(a) * r * 0.45);
+      ctx.arc(Math.cos(a) * r * 0.45, cy + Math.sin(a) * r * 0.45, r * 0.62, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.fillStyle = leaf;
+    ctx.beginPath();
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      ctx.moveTo(Math.cos(a) * r * 0.4 - r * 0.1 + r * 0.46, cy + Math.sin(a) * r * 0.4 - r * 0.12);
+      ctx.arc(Math.cos(a) * r * 0.4 - r * 0.1, cy + Math.sin(a) * r * 0.4 - r * 0.12, r * 0.46, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.fillStyle = crown;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(-r * (0.1 + random() * 0.3), cy - r * (0.5 + random() * 0.2), r * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+
+  if (shape === 'star') {
+    paintMass(-52, 15);
+    ctx.fillStyle = '#ffe9a8';
+    starPath(ctx, 0, -76, 11, 4, 0.34);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,233,168,0.28)';
+    starPath(ctx, 0, -76, 17, 4, 0.3);
+    ctx.fill();
+  } else {
+    paintMass(-52, 16);
+    paintMass(-78, 11);
+  }
+
+  ctx.restore();
+}
+
+/**
+ * A bordered parterre bed: clipped edging, turned soil, and blooms massed
+ * thickly enough that the bed reads as planting rather than a hole in the lawn.
+ */
+export function paintParterre(ctx, x, y, width, height, {
+  edge = '#2f6a4e', edgeDark = '#1c4231', soil = '#4b3c2c',
+  colors = ['#f0d5ea', '#ffe6b8', '#c7b6ea'], seed = 9
+} = {}) {
+  const random = makeRandom(seed);
+  const hw = width / 2;
+  const hh = height / 2;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + hh * 0.42, hw * 1.02, hh * 0.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Turned soil, lit from the moon side so the bed sits proud of the grass.
+  const bed = ctx.createLinearGradient(0, y - hh, 0, y + hh);
+  bed.addColorStop(0, mix(soil, '#8d7256', 0.4));
+  bed.addColorStop(1, mix(soil, '#160f09', 0.35));
+  ctx.fillStyle = bed;
+  ctx.beginPath();
+  ctx.ellipse(x, y, hw, hh, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rake lines.
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(x, y, hw, hh, 0, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.strokeStyle = rgba(mix(soil, '#000000', 0.4), 0.4);
+  ctx.lineWidth = 1.4;
+  for (let i = -3; i <= 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x - hw, y + (i * hh) / 3.2);
+    ctx.quadraticCurveTo(x, y + (i * hh) / 3.2 - 3, x + hw, y + (i * hh) / 3.2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Clipped edging all the way round.
+  const steps = Math.max(18, Math.round((hw + hh) / 5));
+  for (let i = 0; i < steps; i++) {
+    const a = (i / steps) * Math.PI * 2;
+    const ex = x + Math.cos(a) * hw;
+    const ey = y + Math.sin(a) * hh;
+    ctx.fillStyle = Math.sin(a) > -0.2 ? edge : edgeDark;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 5.4 + random() * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Massed planting: foliage first, then blooms on top, thick enough to cover.
+  const count = Math.round((hw * hh) / 26);
+  const spots = [];
+  for (let i = 0; i < count; i++) {
+    const a = random() * Math.PI * 2;
+    const d = Math.sqrt(random()) * 0.86;
+    spots.push({ x: x + Math.cos(a) * hw * d, y: y + Math.sin(a) * hh * d, r: 2.4 + random() * 1.6 });
+  }
+  spots.sort((a, b) => a.y - b.y);
+
+  ctx.fillStyle = edgeDark;
+  ctx.beginPath();
+  for (const s of spots) {
+    ctx.moveTo(s.x + s.r * 1.5, s.y + 2.6);
+    ctx.arc(s.x, s.y + 2.6, s.r * 1.5, 0, Math.PI * 2);
+  }
+  ctx.fill();
+
+  spots.forEach((s, i) => {
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+    if (i % 4 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.beginPath();
+      ctx.arc(s.x - s.r * 0.3, s.y - s.r * 0.34, s.r * 0.34, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+  ctx.restore();
+}
+
+/* -------------------------------------------------------------------------
    Structures
    ------------------------------------------------------------------------- */
 

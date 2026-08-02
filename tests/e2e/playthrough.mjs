@@ -8,13 +8,15 @@
  *   npm start          # in one terminal
  *   npm run test:e2e   # in another
  *
- * The page is opened with `?test=1`, which attaches a small seam
- * (`window.unwrittenPage`) used only to place the heroine in front of a given
- * interactable — walking her across the map with timed key presses would make
- * the suite flaky without testing anything more.
+ * The shipped game exposes no test seam. Playwright appends one to
+ * `src/main.js` in flight (see instrument.mjs) so the suite can read game
+ * state and place the heroine in front of a given interactable — walking her
+ * across the map with timed key presses would make the suite flaky without
+ * testing anything more.
  */
 
 import { chromium } from 'playwright';
+import { instrument, collectTokenLeaks, tokenLeaks } from './instrument.mjs';
 
 const BASE = process.env.GAME_URL || 'http://127.0.0.1:4173/index.html';
 const CHROME = process.env.CHROMIUM_PATH || undefined;
@@ -119,7 +121,8 @@ page.on('pageerror', (e) => errors.push(`${e.message}`));
 const h = makeHelpers(page);
 
 console.log('\n— Title screen —');
-await page.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+await instrument(page);
+await page.goto(`${BASE}`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 
 check('page title does not mention prom', !/prom/i.test(await page.title()), await page.title());
@@ -422,7 +425,8 @@ for (const [chapter, saved] of SAVED_GAMES) {
     localStorage.setItem('unwritten-page:progress:v1', raw);
   }, JSON.stringify({ version: 1, startedAt: 1, gossipHeard: [], hintCounts: {}, ...saved }));
 
-  await p.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+  await instrument(p);
+  await p.goto(`${BASE}`, { waitUntil: 'networkidle' });
   await p.waitForTimeout(800);
   const helpers = makeHelpers(p);
 
@@ -476,7 +480,8 @@ for (const [name, expectedFlag, saved] of INTERRUPTED) {
     localStorage.setItem('unwritten-page:progress:v1', raw);
   }, JSON.stringify({ version: 1, startedAt: 1, gossipHeard: [], hintCounts: {}, ...saved }));
 
-  await p.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+  await instrument(p);
+  await p.goto(`${BASE}`, { waitUntil: 'networkidle' });
   await p.waitForTimeout(800);
   const helpers = makeHelpers(p);
   await p.locator('#overlay button', { hasText: 'Continue' }).click();
@@ -503,7 +508,8 @@ console.log('\n— Mobile behaviour —');
   });
   const mobileErrors = [];
   p.on('pageerror', (e) => mobileErrors.push(e.message));
-  await p.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+  await instrument(p);
+  await p.goto(`${BASE}`, { waitUntil: 'networkidle' });
   await p.waitForTimeout(700);
   const helpers = makeHelpers(p);
 
@@ -646,7 +652,8 @@ console.log('\n— Accessibility —');
     moonflowers: ['stream', 'stones', 'hollow'], gossipHeard: [], hintCounts: {},
     flags: { metTheo: true, woodsComplete: true, cottageArrived: true, guardiansGreeted: true }
   }));
-  await p.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+  await instrument(p);
+  await p.goto(`${BASE}`, { waitUntil: 'networkidle' });
   await p.waitForTimeout(700);
   const helpers = makeHelpers(p);
 
@@ -721,7 +728,8 @@ console.log('\n— Reduced motion —');
   });
   const motionErrors = [];
   p.on('pageerror', (e) => motionErrors.push(e.message));
-  await p.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+  await instrument(p);
+  await p.goto(`${BASE}`, { waitUntil: 'networkidle' });
   await p.waitForTimeout(700);
   const helpers = makeHelpers(p);
 
@@ -756,7 +764,8 @@ for (const [name, viewport] of [
   const p = await browser.newPage({ viewport, deviceScaleFactor: 3, hasTouch: true });
   const portraitErrors = [];
   p.on('pageerror', (e) => portraitErrors.push(e.message));
-  await p.goto(`${BASE}?test=1`, { waitUntil: 'networkidle' });
+  await instrument(p);
+  await p.goto(`${BASE}`, { waitUntil: 'networkidle' });
   await p.waitForTimeout(700);
 
   const overflow = await p.evaluate(() =>
@@ -790,6 +799,10 @@ for (const [name, viewport] of [
   check(`${name}: no console errors`, portraitErrors.length === 0, portraitErrors.join(' | '));
   await p.close();
 }
+
+console.log('\n— Personalisation —');
+await collectTokenLeaks(page);
+check('no unexpanded {token} ever reached the screen', tokenLeaks().length === 0, tokenLeaks().join(' | '));
 
 await browser.close();
 

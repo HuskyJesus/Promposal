@@ -22,12 +22,3 @@ game.register('garden', (g) => new GardenScene(g));
 
 await game.goTo('title', {}, { transition: false });
 game.start();
-
-/**
- * Automated-test seam. Only attached when the page is opened with `?test=1`,
- * so ordinary play never sees it. The end-to-end suite in tests/ uses it to
- * place the heroine and read game state; it is not a gameplay shortcut.
- */
-if (new URLSearchParams(location.search).has('test')) {
-  window.unwrittenPage = { game, config };
-}

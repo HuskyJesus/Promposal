@@ -53,6 +53,8 @@ export class WorldScene {
     this.nearest = null;
     /** When set, the camera watches this point instead of the heroine. */
     this.cameraFocus = null;
+    /** Eased offset that keeps whoever the camera follows above the dialogue. */
+    this.cameraLift = 0;
     this.scriptedWalk = null;
   }
 
@@ -108,13 +110,26 @@ export class WorldScene {
     return drift;
   }
 
-  /** Scatters grass that leans in the breeze across the walkable area. */
-  seedTufts({ count, bounds, colors, blooms = [], seed = 12 }) {
+  /**
+   * Scatters grass that leans in the breeze across the walkable area. `avoid`
+   * takes a list of ellipses ({x, y, rx, ry}) that nothing may grow inside —
+   * ponds, flower beds, paving — so planting never sprouts through a solid.
+   */
+  seedTufts({ count, bounds, colors, blooms = [], seed = 12, avoid = [] }) {
     const random = makeRandom(seed);
+    const blocked = (x, y) => avoid.some((a) =>
+      ((x - a.x) / a.rx) ** 2 + ((y - a.y) / a.ry) ** 2 < 1);
     for (let i = 0; i < count; i++) {
+      let x = bounds.x + random() * bounds.width;
+      let y = bounds.y + random() * bounds.height;
+      for (let tries = 0; tries < 8 && blocked(x, y); tries++) {
+        x = bounds.x + random() * bounds.width;
+        y = bounds.y + random() * bounds.height;
+      }
+      if (blocked(x, y)) continue;
       this.tufts.push({
-        x: bounds.x + random() * bounds.width,
-        y: bounds.y + random() * bounds.height,
+        x,
+        y,
         height: 7 + random() * 9,
         width: 1 + random() * 0.9,
         amp: 1.6 + random() * 2.4,
@@ -375,18 +390,43 @@ export class WorldScene {
    * overrides this.
    */
   drawBackground(ctx) {
-    if (this.background) ctx.drawImage(this.background, 0, 0);
+    if (!this.background) return;
+    ctx.drawImage(this.background, 0, 0);
+    // The camera is allowed a little way past the bottom edge while the
+    // dialogue box is up. Stretching the background's last row down covers
+    // that strip in whatever colour the ground happens to be there, so no
+    // scene ever shows a bar of nothing beside the box.
+    const { width, height } = this.background;
+    ctx.drawImage(this.background, 0, height - 2, width, 2, 0, this.world.height, width, 260);
+  }
+
+  /**
+   * How far to push the camera target down the world so that whoever it is
+   * following stays above the dialogue box. On a tall phone the box can take a
+   * third of the screen, and without this she spends her own scenes standing
+   * behind the words. Eased in and out so the view never jumps.
+   */
+  #dialogueLift(renderer) {
+    const box = this.game.ui?.dialogue?.root;
+    const wanted = box && !box.hidden && box.offsetHeight
+      ? Math.min(0.42, box.offsetHeight / Math.max(1, renderer.height)) * renderer.viewHeight * 0.8
+      : 0;
+    const rate = this.game.settings.reducedMotion ? 1 : 0.08;
+    this.cameraLift += (wanted - this.cameraLift) * rate;
+    return this.cameraLift;
   }
 
   draw(renderer) {
     const ctx = renderer.ctx;
     const reduced = this.game.settings.reducedMotion;
     const focus = this.cameraFocus;
+    const lift = this.#dialogueLift(renderer);
     renderer.followCamera(
       focus ? focus.x : this.player.x,
-      focus ? focus.y : this.player.y - 24,
+      (focus ? focus.y : this.player.y - 24) + lift,
       this.world,
-      reduced ? 1 : (focus ? 0.05 : 0.14)
+      reduced ? 1 : (focus ? 0.05 : 0.14),
+      lift
     );
 
     renderer.clear(this.skyColor);

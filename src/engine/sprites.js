@@ -723,43 +723,112 @@ export function drawChattyFlowers(ctx, { x, y, time = 0, scale = 1 }) {
   }
 }
 
-/** One of the three guardians of the cottage garden. */
+/**
+ * One of the three guardians of the cottage garden: a carved stone herm on a
+ * stepped plinth, holding its symbol above itself. Each is cut from a slightly
+ * different stone so the three read apart at a glance, but the symbol on top
+ * is always the thing that identifies it — the colour only ever agrees.
+ */
+const GUARDIAN_STONE = {
+  stone: { light: '#8d8579', mid: '#6d675d', dark: '#494339', moss: '#3f6b4a' },
+  scroll: { light: '#93897f', mid: '#736860', dark: '#4b4139', moss: '#446e4c' },
+  shears: { light: '#87858c', mid: '#68656e', dark: '#454149', moss: '#3d6a4d' }
+};
+
 export function drawGuardian(ctx, { x, y, symbol, time = 0, scale = 1, active = false }) {
   const s = scale;
+  const rock = GUARDIAN_STONE[symbol] || GUARDIAN_STONE.stone;
   const seed = symbol === 'stone' ? 0 : symbol === 'scroll' ? 2 : 4;
-  const hover = Math.sin(time * 1.6 + seed) * 2.2;
+  const hover = Math.sin(time * 1.4 + seed) * 2.4;
+
   ctx.save();
   ctx.translate(x, y);
-  contactShadow(ctx, 16 * s, 0.3);
-  ctx.translate(0, -hover * s);
+  contactShadow(ctx, 26 * s, 0.34);
 
-  ctx.fillStyle = '#6f6a63';
+  // Two courses of cut stone at the foot, the lower one wider.
+  const course = (w, h, top, radius) => {
+    const face = ctx.createLinearGradient(-w, 0, w, 0);
+    face.addColorStop(0, rock.light);
+    face.addColorStop(0.5, rock.mid);
+    face.addColorStop(1, rock.dark);
+    ctx.fillStyle = face;
+    ctx.beginPath();
+    ctx.roundRect(-w, top, w * 2, h, radius);
+    ctx.fill();
+    strokeShape(ctx, 'rgba(20,18,16,0.5)', 1 * s);
+  };
+  course(22 * s, 9 * s, -9 * s, 2 * s);
+  course(18 * s, 8 * s, -17 * s, 2 * s);
+
+  // The shaft, tapering, with two flutes cut down its face.
+  const shaft = ctx.createLinearGradient(-13 * s, 0, 13 * s, 0);
+  shaft.addColorStop(0, rock.light);
+  shaft.addColorStop(0.42, rock.mid);
+  shaft.addColorStop(1, rock.dark);
+  ctx.fillStyle = shaft;
   ctx.beginPath();
-  ctx.roundRect(-11 * s, -18 * s, 22 * s, 18 * s, 3 * s);
+  ctx.moveTo(-13 * s, -17 * s);
+  ctx.lineTo(-10 * s, -50 * s);
+  ctx.lineTo(10 * s, -50 * s);
+  ctx.lineTo(13 * s, -17 * s);
+  ctx.closePath();
   ctx.fill();
-  strokeShape(ctx, 'rgba(24,22,20,0.5)', 1 * s);
-  ctx.fillStyle = '#87817a';
-  ctx.beginPath();
-  ctx.roundRect(-13 * s, -22 * s, 26 * s, 6 * s, 3 * s);
-  ctx.fill();
-  strokeShape(ctx, 'rgba(24,22,20,0.5)', 1 * s);
-  // Three carved marks, matching every other door in the kingdom.
-  ctx.fillStyle = active ? PALETTE.gold : 'rgba(220,224,236,0.35)';
+  strokeShape(ctx, 'rgba(20,18,16,0.5)', 1 * s);
+
+  ctx.strokeStyle = 'rgba(20,18,16,0.28)';
+  ctx.lineWidth = 1.2 * s;
+  for (const fx of [-4.5, 4.5]) {
+    ctx.beginPath();
+    ctx.moveTo(fx * s, -22 * s);
+    ctx.lineTo(fx * s * 0.86, -46 * s);
+    ctx.stroke();
+  }
+
+  // Capital, carrying the same three marks as every door in the kingdom.
+  course(15 * s, 7 * s, -57 * s, 2 * s);
+  ctx.fillStyle = active ? PALETTE.gold : 'rgba(220,224,236,0.34)';
   for (let i = -1; i <= 1; i++) {
-    starPath(ctx, i * 5 * s, -9 * s, 2 * s);
+    starPath(ctx, i * 6.4 * s, -53.5 * s, 2.1 * s);
     ctx.fill();
   }
 
-  const emblemY = -42 * s;
+  // Moss gathering where the stone meets the grass.
+  ctx.fillStyle = rock.moss;
+  for (const [mx, mr] of [[-19, 4.2], [-12, 3], [15, 3.6], [21, 2.6], [7, 2.4]]) {
+    ctx.beginPath();
+    ctx.ellipse(mx * s, -1.5 * s, mr * s, mr * 0.5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // The symbol the guardian holds, floating a little above the capital.
+  const emblemY = (-74 + hover) * s;
   if (active) {
-    const glow = ctx.createRadialGradient(0, emblemY, 0, 0, emblemY, 28 * s);
-    glow.addColorStop(0, rgba(PALETTE.gold, 0.42));
+    const glow = ctx.createRadialGradient(0, emblemY, 0, 0, emblemY, 32 * s);
+    glow.addColorStop(0, rgba(PALETTE.gold, 0.46));
     glow.addColorStop(1, rgba(PALETTE.gold, 0));
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(0, emblemY, 28 * s, 0, Math.PI * 2);
+    ctx.arc(0, emblemY, 32 * s, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  // A carved ring behind it, turning slowly.
+  ctx.save();
+  ctx.translate(0, emblemY);
+  ctx.strokeStyle = active ? rgba(PALETTE.goldLight, 0.75) : 'rgba(214,220,234,0.3)';
+  ctx.lineWidth = 1.6 * s;
+  ctx.beginPath();
+  ctx.arc(0, 0, 19 * s, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = active ? rgba(PALETTE.goldLight, 0.85) : 'rgba(214,220,234,0.34)';
+  for (let i = 0; i < 6; i++) {
+    const a = time * 0.35 + (i / 6) * Math.PI * 2 + seed;
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * 19 * s, Math.sin(a) * 19 * s, 1.7 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
   drawSymbolGlyph(ctx, 0, emblemY, 13 * s, symbol);
   ctx.restore();
 }

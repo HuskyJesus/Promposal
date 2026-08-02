@@ -340,7 +340,7 @@ export class CottageScene extends WorldScene {
     this.addCollider(SPOTS.journal.x - 44, SPOTS.journal.y - 14, 88, 18);
     // Guardian plinths.
     for (const key of ['stone', 'scroll', 'shears']) {
-      this.addCollider(SPOTS[key].x - 16, SPOTS[key].y - 12, 32, 14);
+      this.addCollider(SPOTS[key].x - 25, SPOTS[key].y - 12, 50, 15);
     }
 
     // A ring of trees closes the garden in; the lawn itself stays open.
@@ -400,7 +400,7 @@ export class CottageScene extends WorldScene {
       this.addEntity({
         y: SPOTS[key].y,
         draw: (ctx, time) => drawGuardian(ctx, {
-          x: SPOTS[key].x, y: SPOTS[key].y, symbol: key, time, scale: 1,
+          x: SPOTS[key].x, y: SPOTS[key].y, symbol: key, time, scale: 1.15,
           active: this.guardiansMet.has(key)
         })
       });
@@ -433,7 +433,7 @@ export class CottageScene extends WorldScene {
       this.addInteractable({
         id: `guardian-${key}`,
         x: SPOTS[key].x, y: SPOTS[key].y,
-        radius: 54, label: 'Speak', promptOffset: -76,
+        radius: 58, label: 'Speak', promptOffset: -112,
         onInteract: async () => {
           await this.say(COTTAGE.guardians[key]);
           this.guardiansMet.add(key);
